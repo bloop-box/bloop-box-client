@@ -35,6 +35,7 @@ impl Controller {
 
         if config_uids.len() == 0 {
             self.add_config_uid(&mut config_uids, nfc.clone()).await?;
+            self.wait_for_release(&nfc).await?;
         }
 
         self.led.send(LedState::Blink { color: BLUE }).await?;
@@ -58,6 +59,7 @@ impl Controller {
                 }
 
                 sleep(Duration::from_millis(500)).await;
+                self.wait_for_release(&nfc).await?;
                 continue;
             }
 
@@ -65,9 +67,7 @@ impl Controller {
             self.audio_player.send(PlayerCommand::PlayBoop { done: done_tx }).await?;
             done_rx.await?;
 
-            let (released_tx, released_rx) = oneshot::channel();
-            nfc.send(NfcCommand::Release { responder: released_tx }).await?;
-            released_rx.await?;
+            self.wait_for_release(&nfc).await?;
         }
     }
 
@@ -109,6 +109,7 @@ impl Controller {
                 self.audio_player.send(PlayerCommand::SetMaxVolume { volume }).await?;
             },
             'u' => {
+                self.wait_for_release(&nfc).await?;
                 self.add_config_uid(config_uids, nfc.clone()).await?;
             },
             'r' => {
@@ -130,6 +131,14 @@ impl Controller {
         Ok(())
     }
 
+    async fn wait_for_release(&self, nfc: &mpsc::Sender<NfcCommand>) -> Result<()> {
+        let (released_tx, released_rx) = oneshot::channel();
+        nfc.send(NfcCommand::Release { responder: released_tx }).await?;
+        released_rx.await?;
+
+        Ok(())
+    }
+
     async fn add_config_uid(&mut self, config_uids: &mut Vec<[u8; 4]>, nfc: mpsc::Sender<NfcCommand>) -> Result<()> {
         self.led.send(LedState::Blink { color: MAGENTA }).await?;
 
@@ -140,7 +149,6 @@ impl Controller {
         if !config_uids.contains(&uid) {
             config_uids.push(uid);
         }
-
 
         let (config_tx, config_rx) = oneshot::channel();
         self.config.send(ConfigCommand::SetConfigUids {

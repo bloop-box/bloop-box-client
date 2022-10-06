@@ -24,9 +24,9 @@ pub struct VolumeConfig {
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Config {
+    pub config_uids: Vec<[u8; 4]>,
     pub connection: Option<ConnectionConfig>,
     pub volume: VolumeConfig,
-    pub config_uids: Vec<[u8; 4]>,
 }
 
 #[derive(Debug)]
@@ -57,9 +57,9 @@ impl ConfigManager {
             },
             Err(_) => {
                 Config {
+                    config_uids: vec!(),
                     connection: None,
                     volume: VolumeConfig { max: 1.0, current: 1.0 },
-                    config_uids: vec!(),
                 }
             },
         };

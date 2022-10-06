@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Result};
+use nfc1::Error::Timeout as TimeoutError;
 use nfc1::BaudRate::Baud106;
 use nfc1::{Modulation, Timeout};
 use nfc1::ModulationType::Iso14443a;
@@ -45,6 +46,7 @@ impl<'a> NfcReader<'a> {
                 TargetInfo::Iso14443a(info) => info,
                 _ => return None,
             },
+            Err(TimeoutError {}) => return None,
             Err(other) => panic!("Failed to select target: {:?}", other),
         };
 
