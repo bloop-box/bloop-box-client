@@ -72,18 +72,16 @@ impl ConfigManager {
                     responder.send(config.config_uids.clone()).unwrap();
                 },
                 SetConfigUids { config_uids, responder } => {
-                    let new_config = config.clone();
-                    config.config_uids = config_uids;
-                    self.store_config(new_config).await?;
+                    (&mut config).config_uids = config_uids;
+                    self.store_config(&config).await?;
                     responder.send(()).unwrap();
                 },
                 GetVolume { responder } => {
                     responder.send(config.volume.clone()).unwrap();
                 },
                 SetVolume { volume_config, responder } => {
-                    let new_config = config.clone();
-                    config.volume = volume_config;
-                    self.store_config(new_config).await?;
+                    (&mut config).volume = volume_config;
+                    self.store_config(&config).await?;
                     responder.send(()).unwrap();
                 },
             }
@@ -92,7 +90,7 @@ impl ConfigManager {
         Ok(())
     }
 
-    async fn store_config(&self, config: Config) -> Result<()> {
+    async fn store_config(&self, config: &Config) -> Result<()> {
         let toml_config = toml::to_string(&config)?;
         let mut file = File::create(&self.config_path).await?;
         file.write_all(toml_config.as_bytes()).await?;
