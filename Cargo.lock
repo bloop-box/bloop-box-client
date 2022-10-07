@@ -118,7 +118,6 @@ dependencies = [
  "tokio-rustls",
  "toml",
  "untildify",
- "webpki",
  "webpki-roots",
  "wpactrl",
 ]

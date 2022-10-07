@@ -11,6 +11,7 @@ use crate::nfc::reader::{NfcReader, Uid};
 pub enum NfcCommand {
     Poll {
         responder: oneshot::Sender<Uid>,
+        cancel_rx: oneshot::Receiver<()>,
     },
     Read {
         uid: Uid,
@@ -18,13 +19,11 @@ pub enum NfcCommand {
     },
     Release {
         responder: oneshot::Sender<()>,
+        cancel_rx: oneshot::Receiver<()>,
     },
 }
 
-pub fn start_nfc_listener(
-    mut nfc_rx: mpsc::Receiver<NfcCommand>,
-    mut cancel_rx: oneshot::Receiver<()>,
-) {
+pub fn start_nfc_listener(mut nfc_rx: mpsc::Receiver<NfcCommand>) {
     thread::spawn(move || {
         let mut context = nfc1::Context::new().unwrap();
         let device = context.open().unwrap();
@@ -34,7 +33,10 @@ pub fn start_nfc_listener(
             use NfcCommand::*;
 
             match command {
-                Poll { responder } => {
+                Poll {
+                    responder,
+                    mut cancel_rx,
+                } => {
                     let uid = loop {
                         if cancel_rx.try_recv() != Err(TryRecvError::Empty) {
                             return;
@@ -57,7 +59,10 @@ pub fn start_nfc_listener(
                         _ => responder.send(None).unwrap(),
                     }
                 }
-                Release { responder } => {
+                Release {
+                    responder,
+                    mut cancel_rx,
+                } => {
                     loop {
                         if cancel_rx.try_recv() != Err(TryRecvError::Empty) {
                             return;

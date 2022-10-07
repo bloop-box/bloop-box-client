@@ -66,7 +66,12 @@ impl Controller {
             self.set_idle_led().await?;
 
             let (uid_tx, uid_rx) = oneshot::channel();
-            nfc.send(NfcCommand::Poll { responder: uid_tx }).await?;
+            let (_cancel_tx, cancel_rx) = oneshot::channel::<()>();
+            nfc.send(NfcCommand::Poll {
+                responder: uid_tx,
+                cancel_rx,
+            })
+            .await?;
 
             tokio::select! {
                 result = uid_rx => {
@@ -249,8 +254,10 @@ impl Controller {
 
     async fn wait_for_release(&self, nfc: &mpsc::Sender<NfcCommand>) -> Result<()> {
         let (released_tx, released_rx) = oneshot::channel();
+        let (_cancel_tx, cancel_rx) = oneshot::channel::<()>();
         nfc.send(NfcCommand::Release {
             responder: released_tx,
+            cancel_rx,
         })
         .await?;
         released_rx.await?;
@@ -266,7 +273,12 @@ impl Controller {
         self.led.send(LedState::Blink { color: MAGENTA }).await?;
 
         let (uid_tx, uid_rx) = oneshot::channel();
-        nfc.send(NfcCommand::Poll { responder: uid_tx }).await?;
+        let (_cancel_tx, cancel_rx) = oneshot::channel::<()>();
+        nfc.send(NfcCommand::Poll {
+            responder: uid_tx,
+            cancel_rx,
+        })
+        .await?;
         let uid = uid_rx.await?;
 
         if !config_uids.contains(&uid) {
@@ -290,9 +302,7 @@ impl Controller {
 impl IntoSubsystem<Error> for Controller {
     async fn run(mut self, subsys: SubsystemHandle) -> Result<()> {
         let (nfc_tx, nfc_rx) = mpsc::channel(1);
-        let (_cancel_nfc_tx, cancel_nfc_rx) = oneshot::channel::<()>();
-
-        start_nfc_listener(nfc_rx, cancel_nfc_rx);
+        start_nfc_listener(nfc_rx);
 
         tokio::select! {
             _ = subsys.on_shutdown_requested() => {
