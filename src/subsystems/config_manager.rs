@@ -73,7 +73,7 @@ impl ConfigManager {
             Ok(mut file) => {
                 let mut toml_config = String::new();
                 file.read_to_string(&mut toml_config).await?;
-                let config: Config = toml::from_str(&mut toml_config)?;
+                let config: Config = toml::from_str(&toml_config)?;
                 config
             }
             Err(_) => Config {
@@ -97,7 +97,7 @@ impl ConfigManager {
                     config_uids,
                     responder,
                 } => {
-                    (&mut config).config_uids = config_uids;
+                    config.config_uids = config_uids;
                     self.store_config(&config).await?;
                     responder.send(()).unwrap();
                 }
@@ -108,7 +108,7 @@ impl ConfigManager {
                     volume_config,
                     responder,
                 } => {
-                    (&mut config).volume = volume_config;
+                    config.volume = volume_config;
                     self.store_config(&config).await?;
                     responder.send(()).unwrap();
                 }
@@ -119,7 +119,7 @@ impl ConfigManager {
                     connection_config,
                     responder,
                 } => {
-                    (&mut config).connection = Some(connection_config);
+                    config.connection = Some(connection_config);
                     self.store_config(&config).await?;
                     responder.send(()).unwrap();
                 }

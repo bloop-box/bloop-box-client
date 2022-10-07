@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Error, Result};
 use log::info;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::Duration;
 use tokio::fs::metadata;
 use tokio::fs::File;
@@ -16,7 +16,7 @@ use crate::subsystems::audio_player::PlayerCommand;
 use crate::subsystems::config_manager::{ConfigCommand, ConnectionConfig};
 use crate::subsystems::led::{LedState, BLUE, CYAN, GREEN, MAGENTA, RED, YELLOW};
 use crate::subsystems::networker::{NetworkerCommand, NetworkerStatus};
-use crate::wpa_supplicant::wpa_supplicant::set_wifi;
+use crate::wifi::wpa_supplicant::set_wifi;
 
 pub struct Controller {
     cache_path: PathBuf,
@@ -57,7 +57,7 @@ impl Controller {
             .await?;
         let mut config_uids = config_rx.await?;
 
-        if config_uids.len() == 0 {
+        if config_uids.is_empty() {
             self.add_config_uid(&mut config_uids, nfc.clone()).await?;
             self.wait_for_release(&nfc).await?;
         }
@@ -106,7 +106,7 @@ impl Controller {
                                 if metadata(&path).await.is_err() {
                                     let (response_tx, response_rx) = oneshot::channel();
                                     self.networker.send(NetworkerCommand::GetAudio {
-                                        id: achievement_id.clone(),
+                                        id: *achievement_id,
                                         responder: response_tx,
                                     }).await?;
                                     let maybe_data = response_rx.await?;
@@ -189,7 +189,7 @@ impl Controller {
             }
         };
 
-        if value.len() < 1 {
+        if value.is_empty() {
             return Err(anyhow!("Value too short"));
         }
 

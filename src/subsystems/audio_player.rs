@@ -53,7 +53,7 @@ impl AudioPlayer {
         rx: mpsc::Receiver<PlayerCommand>,
     ) -> Self {
         Self {
-            cache_path: cache_path.to_path_buf(),
+            cache_path,
             boop_paths: Self::collect_paths("boop").expect(""),
             confirm_paths: Self::collect_paths("confirm").expect(""),
             rx,
@@ -89,7 +89,7 @@ impl AudioPlayer {
                     PlayAsset { path, done } => {
                         let file = ASSETS_DIR
                             .get_file(&path)
-                            .ok_or(anyhow!("Asset file missing: {}", path.display()))
+                            .ok_or_else(|| anyhow!("Asset file missing: {}", path.display()))
                             .unwrap();
                         play_wav.load_mem(file.contents()).unwrap();
                         return Some(PlayState {
@@ -168,7 +168,7 @@ impl AudioPlayer {
                     let path = self
                         .boop_paths
                         .choose(&mut rand::thread_rng())
-                        .ok_or(anyhow!("No boop files available"))?
+                        .ok_or_else(|| anyhow!("No boop files available"))?
                         .clone();
                     soloud_tx
                         .send(SoloudCommand::PlayAsset { path, done })
@@ -178,7 +178,7 @@ impl AudioPlayer {
                     let path = self
                         .confirm_paths
                         .choose(&mut rand::thread_rng())
-                        .ok_or(anyhow!("No confirm files available"))?
+                        .ok_or_else(|| anyhow!("No confirm files available"))?
                         .clone();
                     soloud_tx
                         .send(SoloudCommand::PlayAsset { path, done })
@@ -248,7 +248,7 @@ impl AudioPlayer {
 
         for file in ASSETS_DIR
             .get_dir(dir_name)
-            .ok_or(anyhow!("Directory missing: {}", dir_name))?
+            .ok_or_else(|| anyhow!("Directory missing: {}", dir_name))?
             .files()
         {
             let path = file.path();

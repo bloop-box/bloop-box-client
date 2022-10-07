@@ -13,7 +13,6 @@ pub const BLUE: Color = (Level::Low, Level::Low, Level::High);
 pub const YELLOW: Color = (Level::High, Level::High, Level::Low);
 pub const MAGENTA: Color = (Level::High, Level::Low, Level::High);
 pub const CYAN: Color = (Level::Low, Level::High, Level::High);
-pub const WHITE: Color = (Level::High, Level::High, Level::High);
 
 #[derive(Debug)]
 pub enum LedState {

@@ -85,11 +85,11 @@ impl<'a> NfcReader<'a> {
                         sector * 4 + 3,
                         auth_option.key_type,
                         &auth_option.key,
-                        &uid,
+                        uid,
                     )?;
                 }
                 None => {
-                    let auth_option = self.try_authenticate_block(sector * 4 + 3, &uid)?;
+                    let auth_option = self.try_authenticate_block(sector * 4 + 3, uid)?;
                     maybe_auth_option = Some(auth_option);
                 }
             }
@@ -113,7 +113,7 @@ impl<'a> NfcReader<'a> {
         }
 
         let record = parse_ndef_text_record(&ndef_message_parser.data)?;
-        Ok(record.text()?)
+        record.text()
     }
 
     fn read_block(&mut self, block_number: u8) -> Result<[u8; 16]> {

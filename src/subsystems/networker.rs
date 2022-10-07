@@ -1,16 +1,16 @@
 use std::io;
 use std::net::ToSocketAddrs;
-use std::path::{Path, PathBuf};
+
 use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, bail, ensure, Error, Result};
-use futures_util::pin_mut;
+use anyhow::{Error, Result};
+
 use log::info;
-use serde::{Deserialize, Serialize};
+
 use thiserror;
-use tokio::fs::File;
+
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc;
@@ -20,7 +20,7 @@ use tokio_graceful_shutdown::{IntoSubsystem, SubsystemHandle};
 use tokio_io_timeout::TimeoutStream;
 use tokio_rustls::client::TlsStream;
 use tokio_rustls::rustls::{self, ClientConfig, OwnedTrustAnchor};
-use tokio_rustls::{Connect, TlsConnector};
+use tokio_rustls::TlsConnector;
 
 use crate::nfc::reader::Uid;
 use crate::subsystems::config_manager::{ConfigCommand, ConnectionConfig};
@@ -170,10 +170,13 @@ impl Networker {
                             if let Some(connection_config) = maybe_connection_config.as_ref() {
                                 if let Ok(maybe_connected_stream) = self.connect(
                                     &connector,
-                                    &connection_config
+                                    connection_config
                                 ).await {
                                     match maybe_connected_stream {
-                                        Some(connected_stream) => maybe_stream = Some(connected_stream),
+                                        Some(connected_stream) => {
+                                            maybe_stream = Some(connected_stream);
+                                            self.status_tx.send(NetworkerStatus::Connected).await?
+                                        },
                                         None => {
                                             self.status_tx.send(NetworkerStatus::InvalidCredentials).await?
                                         },
@@ -265,7 +268,7 @@ impl Networker {
         let mut pinned_stream = Box::pin(timeout_stream);
 
         if !self
-            .authenticate(&mut pinned_stream, &connection_config)
+            .authenticate(&mut pinned_stream, connection_config)
             .await?
         {
             return Ok(None);

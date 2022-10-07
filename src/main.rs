@@ -18,13 +18,13 @@ use crate::subsystems::volume_control::VolumeControl;
 
 mod nfc;
 mod subsystems;
-mod wpa_supplicant;
+mod wifi;
 
 #[tokio::main]
 async fn main() -> Result<()> {
     Builder::from_env(Env::default().default_filter_or("debug")).init();
 
-    let home_dir = dirs::home_dir().ok_or(anyhow!("Home directory not found"))?;
+    let home_dir = dirs::home_dir().ok_or_else(|| anyhow!("Home directory not found"))?;
     let local_dir = Path::new(&home_dir).join(".boop-box");
     let cache_dir = Path::new(&local_dir).join("cache");
 

@@ -31,7 +31,7 @@ impl NdefMessageParser {
         }
     }
 
-    pub fn add_data(&mut self, data: &[u8]) -> () {
+    pub fn add_data(&mut self, data: &[u8]) {
         for byte in data {
             match self.state {
                 NdefMessageParserState::Init => {
@@ -65,16 +65,14 @@ impl NdefMessageParser {
                 }
 
                 NdefMessageParserState::Value => {
-                    self.data.push(byte.clone());
+                    self.data.push(*byte);
 
                     if self.data.len() as i32 == self.length {
-                        return ();
+                        return;
                     }
                 }
             }
         }
-
-        ()
     }
 
     pub fn is_done(&self) -> bool {
@@ -93,7 +91,7 @@ pub struct NdefTextRecord {
 
 impl NdefTextRecord {
     pub fn text(&self) -> Result<String> {
-        if self.value.len() == 0 {
+        if self.value.is_empty() {
             return Ok(String::new());
         }
 
@@ -169,7 +167,7 @@ pub fn parse_ndef_text_record(data: &Vec<u8>) -> Result<NdefTextRecord> {
         let type_index = index;
         index += type_length as usize;
 
-        if record_length <= type_index + type_length as usize - 1 {
+        if record_length < type_index + type_length as usize {
             return Err(anyhow!("Type missing"));
         }
 
@@ -182,7 +180,7 @@ pub fn parse_ndef_text_record(data: &Vec<u8>) -> Result<NdefTextRecord> {
         let id_index = index;
         index += id_length as usize;
 
-        if record_length <= id_index + id_length as usize - 1 {
+        if record_length < id_index + id_length as usize {
             return Err(anyhow!("ID missing"));
         }
 
@@ -194,7 +192,7 @@ pub fn parse_ndef_text_record(data: &Vec<u8>) -> Result<NdefTextRecord> {
     let payload_value = if payload_length > 0 {
         let value_index = index;
 
-        if record_length <= value_index + payload_length as usize - 1 {
+        if record_length < value_index + payload_length as usize {
             return Err(anyhow!("Payload missing"));
         }
 
