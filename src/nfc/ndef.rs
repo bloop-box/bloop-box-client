@@ -42,7 +42,7 @@ impl NdefMessageParser {
                     if *byte == 0x03 {
                         self.state = NdefMessageParserState::Length;
                     }
-                },
+                }
 
                 NdefMessageParserState::Length => {
                     if self.length == -1 {
@@ -62,7 +62,7 @@ impl NdefMessageParser {
                         self.length = (self.length << 8) & *byte as i32;
                         self.state = NdefMessageParserState::Value;
                     }
-                },
+                }
 
                 NdefMessageParserState::Value => {
                     self.data.push(byte.clone());
@@ -70,7 +70,7 @@ impl NdefMessageParser {
                     if self.data.len() as i32 == self.length {
                         return ();
                     }
-                },
+                }
             }
         }
 
@@ -98,7 +98,9 @@ impl NdefTextRecord {
         }
 
         let code_length = self.value[0] & 0b00111111;
-        Ok(String::from_utf8(self.value[(code_length as usize + 1)..].to_vec())?)
+        Ok(String::from_utf8(
+            self.value[(code_length as usize + 1)..].to_vec(),
+        )?)
     }
 }
 

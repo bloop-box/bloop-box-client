@@ -9,10 +9,11 @@ use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 use tokio_graceful_shutdown::{IntoSubsystem, SubsystemHandle};
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ConnectionConfig {
     pub host: String,
     pub port: u16,
+    pub user: String,
     pub secret: String,
 }
 
@@ -31,10 +32,27 @@ pub struct Config {
 
 #[derive(Debug)]
 pub enum ConfigCommand {
-    GetConfigUids { responder: oneshot::Sender<Vec<[u8; 4]>> },
-    SetConfigUids { config_uids: Vec<[u8; 4]>, responder: oneshot::Sender<()> },
-    GetVolume { responder: oneshot::Sender<VolumeConfig> },
-    SetVolume { volume_config: VolumeConfig, responder: oneshot::Sender<()> },
+    GetConfigUids {
+        responder: oneshot::Sender<Vec<[u8; 4]>>,
+    },
+    SetConfigUids {
+        config_uids: Vec<[u8; 4]>,
+        responder: oneshot::Sender<()>,
+    },
+    GetVolume {
+        responder: oneshot::Sender<VolumeConfig>,
+    },
+    SetVolume {
+        volume_config: VolumeConfig,
+        responder: oneshot::Sender<()>,
+    },
+    GetConnection {
+        responder: oneshot::Sender<Option<ConnectionConfig>>,
+    },
+    SetConnection {
+        connection_config: ConnectionConfig,
+        responder: oneshot::Sender<()>,
+    },
 }
 
 pub struct ConfigManager {
@@ -44,7 +62,10 @@ pub struct ConfigManager {
 
 impl ConfigManager {
     pub fn new(local_dir: &Path, rx: mpsc::Receiver<ConfigCommand>) -> Self {
-        Self { config_path: local_dir.join("config.toml"), rx }
+        Self {
+            config_path: local_dir.join("config.toml"),
+            rx,
+        }
     }
 
     async fn process(&mut self) -> Result<()> {
@@ -54,13 +75,14 @@ impl ConfigManager {
                 file.read_to_string(&mut toml_config).await?;
                 let config: Config = toml::from_str(&mut toml_config)?;
                 config
-            },
-            Err(_) => {
-                Config {
-                    config_uids: vec!(),
-                    connection: None,
-                    volume: VolumeConfig { max: 1.0, current: 1.0 },
-                }
+            }
+            Err(_) => Config {
+                config_uids: vec![],
+                connection: None,
+                volume: VolumeConfig {
+                    max: 1.0,
+                    current: 1.0,
+                },
             },
         };
 
@@ -70,20 +92,37 @@ impl ConfigManager {
             match command {
                 GetConfigUids { responder } => {
                     responder.send(config.config_uids.clone()).unwrap();
-                },
-                SetConfigUids { config_uids, responder } => {
+                }
+                SetConfigUids {
+                    config_uids,
+                    responder,
+                } => {
                     (&mut config).config_uids = config_uids;
                     self.store_config(&config).await?;
                     responder.send(()).unwrap();
-                },
+                }
                 GetVolume { responder } => {
                     responder.send(config.volume.clone()).unwrap();
-                },
-                SetVolume { volume_config, responder } => {
+                }
+                SetVolume {
+                    volume_config,
+                    responder,
+                } => {
                     (&mut config).volume = volume_config;
                     self.store_config(&config).await?;
                     responder.send(()).unwrap();
-                },
+                }
+                GetConnection { responder } => {
+                    responder.send(config.connection.clone()).unwrap();
+                }
+                SetConnection {
+                    connection_config,
+                    responder,
+                } => {
+                    (&mut config).connection = Some(connection_config);
+                    self.store_config(&config).await?;
+                    responder.send(()).unwrap();
+                }
             }
         }
 

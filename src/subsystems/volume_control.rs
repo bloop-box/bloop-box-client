@@ -23,12 +23,18 @@ impl VolumeControl {
     async fn process(&mut self, mut button_rx: mpsc::Receiver<f32>) -> Result<()> {
         while let Some(delta) = button_rx.recv().await {
             let (get_length_tx, get_length_rx) = oneshot::channel();
-            self.audio_player.send(PlayerCommand::GetVolume { responder: get_length_tx }).await?;
+            self.audio_player
+                .send(PlayerCommand::GetVolume {
+                    responder: get_length_tx,
+                })
+                .await?;
 
             let current_volume = get_length_rx.await?;
-            self.audio_player.send(PlayerCommand::SetVolume {
-                volume: (current_volume + delta).clamp(0., 1.),
-            }).await?;
+            self.audio_player
+                .send(PlayerCommand::SetVolume {
+                    volume: (current_volume + delta).clamp(0., 1.),
+                })
+                .await?;
         }
 
         Ok(())
@@ -43,8 +49,14 @@ impl IntoSubsystem<Error> for VolumeControl {
         let volume_down_pin = gpio.get(GPIO_VOLUME_DOWN)?;
         let volume_up_pin = gpio.get(GPIO_VOLUME_UP)?;
 
-        subsys.start("VolumeDownButton", Button::new(volume_down_pin, button_tx.clone(), -0.05).into_subsystem());
-        subsys.start("VolumeUpButton", Button::new(volume_up_pin, button_tx, 0.05).into_subsystem());
+        subsys.start(
+            "VolumeDownButton",
+            Button::new(volume_down_pin, button_tx.clone(), -0.05).into_subsystem(),
+        );
+        subsys.start(
+            "VolumeUpButton",
+            Button::new(volume_up_pin, button_tx, 0.05).into_subsystem(),
+        );
 
         tokio::select! {
             _ = subsys.on_shutdown_requested() => {

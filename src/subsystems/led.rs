@@ -5,15 +5,15 @@ use tokio::sync::mpsc;
 use tokio::time::{self, Duration};
 use tokio_graceful_shutdown::{IntoSubsystem, NestedSubsystem, SubsystemHandle};
 
-pub type Color = ( Level, Level, Level );
+pub type Color = (Level, Level, Level);
 
-pub const RED: Color = ( Level::High, Level::Low, Level::Low );
-pub const GREEN: Color = ( Level::Low, Level::High, Level::Low );
-pub const BLUE: Color = ( Level::Low, Level::Low, Level::High );
-pub const YELLOW: Color = ( Level::High, Level::High, Level::Low );
-pub const MAGENTA: Color = ( Level::High, Level::Low, Level::High );
-pub const CYAN: Color = ( Level::Low, Level::High, Level::High );
-pub const WHITE: Color = ( Level::High, Level::High, Level::High );
+pub const RED: Color = (Level::High, Level::Low, Level::Low);
+pub const GREEN: Color = (Level::Low, Level::High, Level::Low);
+pub const BLUE: Color = (Level::Low, Level::Low, Level::High);
+pub const YELLOW: Color = (Level::High, Level::High, Level::Low);
+pub const MAGENTA: Color = (Level::High, Level::Low, Level::High);
+pub const CYAN: Color = (Level::Low, Level::High, Level::High);
+pub const WHITE: Color = (Level::High, Level::High, Level::High);
 
 #[derive(Debug)]
 pub enum LedState {
@@ -30,7 +30,11 @@ impl Led {
         Self { rx }
     }
 
-    async fn process(&mut self, subsys: SubsystemHandle, tx: mpsc::Sender<InternalLedState>) -> Result<()> {
+    async fn process(
+        &mut self,
+        subsys: SubsystemHandle,
+        tx: mpsc::Sender<InternalLedState>,
+    ) -> Result<()> {
         let mut maybe_blink_subsys: Option<NestedSubsystem> = None;
 
         while let Some(led_state) = self.rx.recv().await {
@@ -43,8 +47,9 @@ impl Led {
                 LedState::On { color } => tx.send(InternalLedState::On { color }).await?,
                 LedState::Blink { color } => {
                     let tx = tx.clone();
-                    maybe_blink_subsys = Some(subsys.start("Blink", move |subsys| blink(subsys, color, tx)));
-                },
+                    maybe_blink_subsys =
+                        Some(subsys.start("Blink", move |subsys| blink(subsys, color, tx)));
+                }
             }
         }
 
@@ -52,7 +57,11 @@ impl Led {
     }
 }
 
-async fn blink (subsys: SubsystemHandle, color: Color, tx: mpsc::Sender<InternalLedState>) -> Result<()> {
+async fn blink(
+    subsys: SubsystemHandle,
+    color: Color,
+    tx: mpsc::Sender<InternalLedState>,
+) -> Result<()> {
     let mut interval = time::interval(Duration::from_millis(500));
     let mut on = false;
 
@@ -79,7 +88,10 @@ impl IntoSubsystem<Error> for Led {
     async fn run(mut self, subsys: SubsystemHandle) -> Result<()> {
         let (internal_tx, internal_rx) = mpsc::channel(8);
 
-        subsys.start("InternalLed", InternalLed::new(internal_rx).into_subsystem());
+        subsys.start(
+            "InternalLed",
+            InternalLed::new(internal_rx).into_subsystem(),
+        );
 
         tokio::select! {
             _ = subsys.on_shutdown_requested() => {
@@ -123,12 +135,12 @@ impl InternalLed {
                     red_pin.write(color.0);
                     green_pin.write(color.1);
                     blue_pin.write(color.2);
-                },
+                }
                 InternalLedState::Off => {
                     red_pin.write(Level::Low);
                     green_pin.write(Level::Low);
                     blue_pin.write(Level::Low);
-                },
+                }
             }
         }
 

@@ -9,12 +9,22 @@ use crate::nfc::reader::{NfcReader, Uid};
 
 #[derive(Debug)]
 pub enum NfcCommand {
-    Poll { responder: oneshot::Sender<Uid> },
-    Read { uid: Uid, responder: oneshot::Sender<Option<String>> },
-    Release { responder: oneshot::Sender<()> },
+    Poll {
+        responder: oneshot::Sender<Uid>,
+    },
+    Read {
+        uid: Uid,
+        responder: oneshot::Sender<Option<String>>,
+    },
+    Release {
+        responder: oneshot::Sender<()>,
+    },
 }
 
-pub fn start_nfc_listener(mut nfc_rx: mpsc::Receiver<NfcCommand>, mut cancel_rx: oneshot::Receiver<()>) {
+pub fn start_nfc_listener(
+    mut nfc_rx: mpsc::Receiver<NfcCommand>,
+    mut cancel_rx: oneshot::Receiver<()>,
+) {
     thread::spawn(move || {
         let mut context = nfc1::Context::new().unwrap();
         let device = context.open().unwrap();
@@ -38,7 +48,7 @@ pub fn start_nfc_listener(mut nfc_rx: mpsc::Receiver<NfcCommand>, mut cancel_rx:
                     };
 
                     responder.send(uid).unwrap();
-                },
+                }
                 Read { uid, responder } => {
                     let result = nfc_reader.read_first_plain_text_ndef_record(&uid);
 
@@ -46,7 +56,7 @@ pub fn start_nfc_listener(mut nfc_rx: mpsc::Receiver<NfcCommand>, mut cancel_rx:
                         Ok(value) => responder.send(Some(value)).unwrap(),
                         _ => responder.send(None).unwrap(),
                     }
-                },
+                }
                 Release { responder } => {
                     loop {
                         if cancel_rx.try_recv() != Err(TryRecvError::Empty) {
@@ -61,7 +71,7 @@ pub fn start_nfc_listener(mut nfc_rx: mpsc::Receiver<NfcCommand>, mut cancel_rx:
                     }
 
                     responder.send(()).unwrap();
-                },
+                }
             }
         }
     });
