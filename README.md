@@ -2,6 +2,22 @@
 
 Boop box client written in Rust with Tokio.
 
+## LED Status Codes
+
+### Static
+
+- Green: Ready to read attendee tags
+- Yellow: Processing tag
+- Cyan: Config tag accepted
+- Red: Config tag denied (malformed data)
+
+### Blinking
+
+- Magenta: Awaiting new config tag
+- Yellow: Awaiting connection config
+- Blue: Connecting to server
+- Red: Invalid server credentials
+
 ## Deployment
 
 ### Cross compilation
