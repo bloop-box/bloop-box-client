@@ -110,15 +110,11 @@ impl Networker {
         }
 
         let mut interval = time::interval(Duration::from_secs(3));
+        let mut invalid_credentials = false;
 
         loop {
             tokio::select! {
                 maybe_command = self.rx.recv() => {
-                    let stream = match maybe_stream {
-                        Some(ref mut stream) => stream,
-                        None => continue,
-                    };
-
                     use NetworkerCommand::*;
 
                     match maybe_command {
@@ -127,6 +123,7 @@ impl Networker {
                                 SetConnection { connection_config } => {
                                     maybe_connection_config = Some(connection_config.clone());
                                     maybe_stream = None;
+                                    invalid_credentials = false;
 
                                     let (config_tx, config_rx) = oneshot::channel();
                                     self.config.send(ConfigCommand::SetConnection {
@@ -136,20 +133,32 @@ impl Networker {
                                     config_rx.await?;
                                 },
                                 CheckUid { uid, responder } => {
+                                    let stream = match maybe_stream {
+                                        Some(ref mut stream) => stream,
+                                        None => continue,
+                                    };
+
                                     match self.check_uid(stream, &uid).await {
                                         Ok(achievements) => responder.send(achievements).unwrap(),
                                         Err(_) => {
                                             maybe_stream = None;
                                             self.status_tx.send(NetworkerStatus::Disconnected).await?;
+                                            responder.send(None).unwrap();
                                         },
                                     }
                                 },
                                 GetAudio { id, responder } => {
+                                    let stream = match maybe_stream {
+                                        Some(ref mut stream) => stream,
+                                        None => continue,
+                                    };
+
                                     match self.get_audio(stream, &id).await {
                                         Ok(data) => responder.send(data).unwrap(),
                                         Err(_) => {
                                             maybe_stream = None;
                                             self.status_tx.send(NetworkerStatus::Disconnected).await?;
+                                            responder.send(None).unwrap();
                                         },
                                     }
                                 },
@@ -168,6 +177,12 @@ impl Networker {
                         },
                         None => {
                             if let Some(connection_config) = maybe_connection_config.as_ref() {
+                                if invalid_credentials {
+                                    continue;
+                                }
+
+                                self.status_tx.send(NetworkerStatus::Disconnected).await?;
+
                                 if let Ok(maybe_connected_stream) = self.connect(
                                     &connector,
                                     connection_config
@@ -175,10 +190,12 @@ impl Networker {
                                     match maybe_connected_stream {
                                         Some(connected_stream) => {
                                             maybe_stream = Some(connected_stream);
-                                            self.status_tx.send(NetworkerStatus::Connected).await?
+                                            self.status_tx.send(NetworkerStatus::Connected).await?;
+                                            invalid_credentials = false;
                                         },
                                         None => {
-                                            self.status_tx.send(NetworkerStatus::InvalidCredentials).await?
+                                            self.status_tx.send(NetworkerStatus::InvalidCredentials).await?;
+                                            invalid_credentials = true;
                                         },
                                     }
                                 }
@@ -202,7 +219,7 @@ impl Networker {
 
         let result = stream.read_u8().await?;
 
-        if result == 0x00 {
+        if result == 0x00 || result == 0x02 {
             return Ok(None);
         }
 
@@ -286,7 +303,7 @@ impl Networker {
         stream.write_u8(auth_string.len() as u8).await?;
         stream.write_all(auth_string.as_bytes()).await?;
 
-        Ok(stream.read_u8().await? == 0x00)
+        Ok(stream.read_u8().await? == 0x01)
     }
 }
 

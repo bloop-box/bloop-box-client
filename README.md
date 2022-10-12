@@ -23,13 +23,14 @@ To have the boop box automatically start when the system boots, create a systemd
 
 ```
 [Unit]
-Description=BoopBox.js
+Description=BoopBox
 After=network.target
 
 [Service]
 Type=simple
 User=pi
-ExecStart=/usr/local/bin/node /home/pi/bin/boop-box
+ExecStart=/home/pi/bin/boop-box
+Environment="RUST_LOG=info"
 WorkingDirectory=/home/pi
 Restart=always
 

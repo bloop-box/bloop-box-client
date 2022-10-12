@@ -3,7 +3,7 @@ use nfc1::target_info::TargetInfo;
 use nfc1::BaudRate::Baud106;
 use nfc1::Error::Timeout as TimeoutError;
 use nfc1::ModulationType::Iso14443a;
-use nfc1::{Modulation, Timeout};
+use nfc1::{Modulation, Property, Timeout};
 
 use crate::nfc::ndef::{parse_ndef_text_record, NdefMessageParser};
 
@@ -49,6 +49,9 @@ impl<'a> NfcReader<'a> {
     }
 
     pub fn select_target(&mut self) -> Option<Uid> {
+        self.device
+            .set_property_bool(Property::InfiniteSelect, false)
+            .unwrap();
         let result = self.device.initiator_select_passive_target(&Modulation {
             modulation_type: Iso14443a,
             baud_rate: Baud106,

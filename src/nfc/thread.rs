@@ -29,7 +29,7 @@ pub fn start_nfc_listener(mut nfc_rx: mpsc::Receiver<NfcCommand>) {
         let device = context.open().unwrap();
         let mut nfc_reader = NfcReader::new(device);
 
-        while let Some(command) = nfc_rx.blocking_recv() {
+        'command: while let Some(command) = nfc_rx.blocking_recv() {
             use NfcCommand::*;
 
             match command {
@@ -39,7 +39,7 @@ pub fn start_nfc_listener(mut nfc_rx: mpsc::Receiver<NfcCommand>) {
                 } => {
                     let uid = loop {
                         if cancel_rx.try_recv() != Err(TryRecvError::Empty) {
-                            return;
+                            continue 'command;
                         }
 
                         if let Some(uid) = nfc_reader.select_target() {

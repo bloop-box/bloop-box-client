@@ -100,11 +100,11 @@ impl Controller {
 
                     match maybe_achievements {
                         Some(achievements) => {
-                            let (done_tx, done_rx) = oneshot::channel();
-                            self.audio_player.send(PlayerCommand::PlayConfirm { done: done_tx }).await?;
-                            done_rx.await?;
-
                             for achievement_id in achievements.iter() {
+                                let (done_tx, done_rx) = oneshot::channel();
+                                self.audio_player.send(PlayerCommand::PlayConfirm { done: done_tx }).await?;
+                                done_rx.await?;
+
                                 let filename = format!("{:x?}.mp3", achievement_id);
                                 let path = self.cache_path.join(&filename);
 
