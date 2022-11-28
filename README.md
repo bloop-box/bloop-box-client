@@ -1,5 +1,7 @@
 # Bloop Box
 
+[![ci](https://github.com/bloop-box/bloop-box-client/actions/workflows/ci.yml/badge.svg)](https://github.com/bloop-box/bloop-box-client/actions/workflows/ci.yml)
+
 Bloop box client written in Rust with Tokio.
 
 ## LED Status Codes
