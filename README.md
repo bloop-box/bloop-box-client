@@ -118,12 +118,11 @@ reload the SSH daemon: `sudo systemctl reload sshd`.
 Then install the audio driver according to these instructions:
 https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp/raspberry-pi-usage
 
-Next set up libnfc and audio for the pi user:
+Next set up libnfc:
 
 ```bash
 sudo apt install libnfc6
 sudo raspi-config nonint do_spi 0
-sudo usermod -a -G audio pi
 ```
 
 Now you just have to configure the NFC device. Do so by editing `/etc/nfc/libnfc.conf` and modify the last two lines:
