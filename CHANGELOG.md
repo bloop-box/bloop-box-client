@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/bloop-box/bloop-box-client/compare/v1.0.0...v1.0.1) (2022-11-28)
+
+
+### Bug Fixes
+
+* **debian:** add bloop-box user to required groups ([4ec2106](https://github.com/bloop-box/bloop-box-client/commit/4ec21062ac5ef0bb6ce640e5118b337e0883e20c))
+
 # 1.0.0 (2022-11-28)
 
 
