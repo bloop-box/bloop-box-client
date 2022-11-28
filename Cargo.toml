@@ -29,3 +29,17 @@ tokio-io-timeout = "1.2.0"
 thiserror = "1.0.37"
 futures-util = "0.3.24"
 glob = "0.3.0"
+
+[profile.release]
+strip = "debuginfo"
+
+[package.metadata.deb]
+depends = "libnfc6, adduser, bloop-box-data, systemd"
+conf-files = ["/usr/local/etc/rpi0wcar.json", "/etc/systemd/system/rpi0wcar.service"]
+maintainer-scripts = "debian/"
+systemd-units = { enable = true }
+extended-description = """\
+Bloop Box client for sending bloops to a server.\
+"""
+section = "games"
+priority = "optional"

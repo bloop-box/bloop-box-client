@@ -1,0 +1,13 @@
+[Unit]
+Description=BloopBox
+After=network.target
+
+[Service]
+Type=simple
+User=bloop-box
+ExecStart=/usr/bin/bloop-box
+Environment="RUST_LOG=info"
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

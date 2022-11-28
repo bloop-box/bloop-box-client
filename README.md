@@ -20,9 +20,22 @@ Bloop box client written in Rust with Tokio.
 - Blue: Connecting to server
 - Red: Invalid server credentials
 
+## Shared data
+
+You'll need to have a data package for the bloop box installed. For more information about this, please check the
+[Bloop Box Data Example](https://github.com/bloop-box/bloop-box-data-example)
+
 ## Deployment
 
-### Cross compilation
+### Automatic
+
+You can find pre-compiled `.deb` files in the
+[release section](https://github.com/bloop-box/bloop-box-client/releases). These will automatically set everything
+up for you.
+
+### Manual
+
+#### Cross compilation
 
 In order to compile Bloop Box for the Raspberry Zero W, run the following command:
 
@@ -34,24 +47,21 @@ This will generate a debug build. In order to create a release build, add `--rel
 
 Copy the resulting binary from the target folder to `/usr/bin/bloop-box`.
 
-### Install shared data
-
-You'll need to have a data package for the bloop box installed. For more information about this, please check the
-[Bloop Box Data Example](https://github.com/bloop-box/bloop-box-data-example)
-
-### User setup
+#### User setup
 
 Apart from the shared data, you'll need to set up the bloop-box user and its run directory:
 
 ```bash
-useradd -M -s /usr/sbin/nologin -d /nonexistent bloop-box
+adduser --system --home /nonexistent --gecos "bloop-box" \
+        --no-create-home --disabled-password \
+        --quiet bloop-box 
 mkdir -p /run/bloop-box
 chown bloop-box:bloop-box /run/bloop-box
 ```
 
 On a development system, you might want to give the bloop-box user a login shell and a home directory.
 
-### Systemd
+#### Systemd
 
 To have the bloop box automatically start when the system boots, create a systemd file in
 `/lib/systemd/system/bloop-box.service`:
@@ -110,7 +120,7 @@ https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp/raspberry-pi-u
 Next set up libnfc and audio for the pi user:
 
 ```bash
-sudo apt install libnfc5 libnfc-dev mpg123
+sudo apt install libnfc6
 sudo raspi-config nonint do_spi 0
 sudo usermod -a -G audio pi
 ```

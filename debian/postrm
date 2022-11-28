@@ -1,0 +1,13 @@
+#!/bin/sh
+set -e
+
+if [ purge = "$1" ]; then
+   if [ -x "$(command -v deluser)" ]; then
+     deluser --quiet --system bloop-box > /dev/null || true
+  else
+     echo >&2 "not removing bloop-box system account because deluser command was not found"
+  fi
+  rm -rf /run/bloop-box
+fi
+
+#DEBHELPER#

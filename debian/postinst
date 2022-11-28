@@ -1,0 +1,18 @@
+#!/bin/sh
+set -e
+
+# create a user to run as (code stolen from dovecot-common)
+if [ "$1" = "configure" ]; then
+  if [ -z "`id -u bloop-box 2> /dev/null`" ]; then
+    adduser --system --home /nonexistent --gecos "bloop-box" \
+            --no-create-home --disabled-password \
+            --quiet bloop-box || true
+  fi
+
+  if [ ! -d /run/bloop-box ]; then
+    mkdir /run/bloop-box
+    chown bloop-box:nogroup /run/bloop-box
+  fi
+fi
+
+#DEBHELPER#

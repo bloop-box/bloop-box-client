@@ -1,0 +1,18 @@
+branches:
+  - main
+
+plugins:
+  - '@semantic-release/commit-analyzer'
+  - '@semantic-release/release-notes-generator'
+  - '@semantic-release/changelog'
+  - - '@semantic-release/exec'
+    - prepareCmd: "./semantic-release-build.sh ${nextRelease.version}"
+  - - '@semantic-release/github'
+    - assets:
+      - target/arm-unknown-linux-gnueabihf/debian/*.deb
+  - - '@semantic-release/git'
+    - assets:
+      - CHANGELOG.md
+      - Cargo.toml
+      - Cargo.lock
+      message: "chore(release): set `Cargo.toml` to ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
