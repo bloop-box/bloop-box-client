@@ -9,6 +9,8 @@ if [ "$1" = "configure" ]; then
             --quiet bloop-box || true
   fi
 
+  usermod -a -G gpio,spi,audio bloop-box
+
   if [ ! -d /run/bloop-box ]; then
     mkdir /run/bloop-box
     chown bloop-box:nogroup /run/bloop-box

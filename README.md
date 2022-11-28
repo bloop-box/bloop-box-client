@@ -54,7 +54,8 @@ Apart from the shared data, you'll need to set up the bloop-box user and its run
 ```bash
 adduser --system --home /nonexistent --gecos "bloop-box" \
         --no-create-home --disabled-password \
-        --quiet bloop-box 
+        --quiet bloop-box
+usermod -a -G gpio,spi,audio bloop-box
 mkdir -p /run/bloop-box
 chown bloop-box:bloop-box /run/bloop-box
 ```
