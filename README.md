@@ -92,7 +92,7 @@ sudo systemctl start bloop-box
 
 ## System setup
 
-- Flash an SD card with the Raspian Buster Lite image.
+- Flash an SD card with the Raspian Bullseye Lite image.
 - Create an empty file `/boot/ssh`.
 
 Create a file `/boot/wpa_supplicant.conf` with the following contents and adjust SSID and PSK:
