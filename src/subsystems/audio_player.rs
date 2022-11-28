@@ -1,12 +1,11 @@
-use std::ffi::OsStr;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::thread;
 use std::thread::sleep;
 use std::time::Duration;
 
 use crate::subsystems::config_manager::ConfigCommand;
 use anyhow::{anyhow, Error, Result};
-use include_dir::{include_dir, Dir};
+use glob::glob;
 use log::info;
 use rand::seq::SliceRandom;
 use soloud::*;
@@ -16,20 +15,19 @@ use tokio::sync::oneshot;
 use tokio_graceful_shutdown::{IntoSubsystem, SubsystemHandle};
 
 pub struct AudioPlayer {
+    share_path: PathBuf,
     cache_path: PathBuf,
-    boop_paths: Vec<PathBuf>,
+    bloop_paths: Vec<PathBuf>,
     confirm_paths: Vec<PathBuf>,
     rx: mpsc::Receiver<PlayerCommand>,
     config: mpsc::Sender<ConfigCommand>,
 }
 
-const ASSETS_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/assets");
-
 pub type Done = oneshot::Sender<()>;
 
 #[derive(Debug)]
 pub enum PlayerCommand {
-    PlayBoop { done: Done },
+    PlayBloop { done: Done },
     PlayConfirm { done: Done },
     PlayAsset { path: PathBuf, done: Done },
     PlayCached { path: PathBuf, done: Done },
@@ -48,14 +46,16 @@ enum SoloudCommand {
 
 impl AudioPlayer {
     pub fn new(
+        share_path: PathBuf,
         cache_path: PathBuf,
         config: mpsc::Sender<ConfigCommand>,
         rx: mpsc::Receiver<PlayerCommand>,
     ) -> Self {
         Self {
+            share_path: share_path.clone(),
             cache_path,
-            boop_paths: Self::collect_paths("boop").expect(""),
-            confirm_paths: Self::collect_paths("confirm").expect(""),
+            bloop_paths: Self::collect_paths(&share_path, "bloop").expect(""),
+            confirm_paths: Self::collect_paths(&share_path, "confirm").expect(""),
             rx,
             config,
         }
@@ -63,6 +63,7 @@ impl AudioPlayer {
 
     async fn process(&mut self) -> Result<()> {
         let (soloud_tx, mut soloud_rx) = mpsc::channel(8);
+        let share_path = self.share_path.to_str().unwrap().to_owned();
 
         thread::spawn(move || {
             struct PlayState {
@@ -74,12 +75,7 @@ impl AudioPlayer {
             let mut play_wav = audio::Wav::default();
             let mut volume_change_wav = audio::Wav::default();
             volume_change_wav
-                .load_mem(
-                    ASSETS_DIR
-                        .get_file(PathBuf::from("volume-change.mp3"))
-                        .unwrap()
-                        .contents(),
-                )
+                .load(format!("{}/volume-change.mp3", share_path))
                 .unwrap();
 
             let mut handle_command = |soloud: &mut Soloud, command| {
@@ -87,11 +83,9 @@ impl AudioPlayer {
 
                 match command {
                     PlayAsset { path, done } => {
-                        let file = ASSETS_DIR
-                            .get_file(&path)
-                            .ok_or_else(|| anyhow!("Asset file missing: {}", path.display()))
+                        play_wav
+                            .load(format!("{}/{}", share_path, path.to_str().unwrap()))
                             .unwrap();
-                        play_wav.load_mem(file.contents()).unwrap();
                         return Some(PlayState {
                             handle: soloud.play(&play_wav),
                             done,
@@ -164,9 +158,9 @@ impl AudioPlayer {
             use PlayerCommand::*;
 
             match play_command {
-                PlayBoop { done } => {
+                PlayBloop { done } => {
                     let path = self
-                        .boop_paths
+                        .bloop_paths
                         .choose(&mut rand::thread_rng())
                         .ok_or_else(|| anyhow!("No boop files available"))?
                         .clone();
@@ -243,21 +237,13 @@ impl AudioPlayer {
         Ok(())
     }
 
-    fn collect_paths(dir_name: &str) -> Result<Vec<PathBuf>> {
+    fn collect_paths(share_path: &Path, dir_name: &str) -> Result<Vec<PathBuf>> {
         let mut paths: Vec<PathBuf> = Vec::new();
 
-        for file in ASSETS_DIR
-            .get_dir(dir_name)
-            .ok_or_else(|| anyhow!("Directory missing: {}", dir_name))?
-            .files()
+        for entry in
+            glob(format!("{}/{}/*.mp3", share_path.to_str().unwrap(), dir_name).as_str()).unwrap()
         {
-            let path = file.path();
-
-            if path.extension() != Some(OsStr::new("mp3")) {
-                continue;
-            }
-
-            paths.push(path.try_into()?);
+            paths.push(entry.unwrap().as_path().try_into()?);
         }
 
         Ok(paths)

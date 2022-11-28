@@ -1,2 +1,3 @@
-[target.arm-unknown-linux-gnueabihf]
-image = "furvester/boop-box-cross-rs:latest"
+[target.arm-unknown-linux-gnueabihf.dockerfile]
+file = "./cross-rs/Dockerfile"
+context = "./cross-rs/"

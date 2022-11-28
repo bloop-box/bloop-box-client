@@ -2,7 +2,7 @@ extern crate core;
 
 use std::path::Path;
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use env_logger::{Builder, Env};
 use tokio::fs;
 use tokio::sync::mpsc;
@@ -24,13 +24,9 @@ mod wifi;
 async fn main() -> Result<()> {
     Builder::from_env(Env::default().default_filter_or("debug")).init();
 
-    let home_dir = dirs::home_dir().ok_or_else(|| anyhow!("Home directory not found"))?;
-    let local_dir = Path::new(&home_dir).join(".boop-box");
-    let cache_dir = Path::new(&local_dir).join("cache");
-
-    if !local_dir.is_dir() {
-        fs::create_dir(&local_dir).await?;
-    }
+    let share_dir = Path::new("/usr/share/bloop-box");
+    let data_dir = Path::new("/run/bloop-box");
+    let cache_dir = Path::new(&data_dir).join("cache");
 
     if !cache_dir.is_dir() {
         fs::create_dir(&cache_dir).await?;
@@ -46,12 +42,17 @@ async fn main() -> Result<()> {
         .start("Led", Led::new(led_rx).into_subsystem())
         .start(
             "ConfigManager",
-            ConfigManager::new(&local_dir, config_rx).into_subsystem(),
+            ConfigManager::new(data_dir, config_rx).into_subsystem(),
         )
         .start(
             "AudioPlayer",
-            AudioPlayer::new(cache_dir.clone(), config_tx.clone(), audio_player_rx)
-                .into_subsystem(),
+            AudioPlayer::new(
+                share_dir.to_path_buf(),
+                cache_dir.clone(),
+                config_tx.clone(),
+                audio_player_rx,
+            )
+            .into_subsystem(),
         )
         .start(
             "VolumeControl",

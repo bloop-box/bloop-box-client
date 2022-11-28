@@ -42,13 +42,20 @@ pub enum NetworkerStatus {
 type Stream = TimeoutStream<TlsStream<TcpStream>>;
 
 #[derive(Debug)]
+pub enum CheckUidResponse {
+    Error {},
+    Throttle {},
+    Ok { achievements: Vec<AchievementId> },
+}
+
+#[derive(Debug)]
 pub enum NetworkerCommand {
     SetConnection {
         connection_config: ConnectionConfig,
     },
     CheckUid {
         uid: Uid,
-        responder: oneshot::Sender<Option<Vec<AchievementId>>>,
+        responder: oneshot::Sender<CheckUidResponse>,
     },
     GetAudio {
         id: AchievementId,
@@ -139,11 +146,11 @@ impl Networker {
                                     };
 
                                     match self.check_uid(stream, &uid).await {
-                                        Ok(achievements) => responder.send(achievements).unwrap(),
+                                        Ok(response) => responder.send(response).unwrap(),
                                         Err(_) => {
                                             maybe_stream = None;
                                             self.status_tx.send(NetworkerStatus::Disconnected).await?;
-                                            responder.send(None).unwrap();
+                                            responder.send(CheckUidResponse::Error {}).unwrap();
                                         },
                                     }
                                 },
@@ -213,14 +220,18 @@ impl Networker {
         &self,
         stream: &mut Pin<Box<Stream>>,
         uid: &Uid,
-    ) -> Result<Option<Vec<AchievementId>>> {
+    ) -> Result<CheckUidResponse> {
         stream.write_u8(0x00).await?;
         stream.write_all(uid).await?;
 
         let result = stream.read_u8().await?;
 
-        if result == 0x00 || result == 0x02 {
-            return Ok(None);
+        if result == 0x00 {
+            return Ok(CheckUidResponse::Error {});
+        }
+
+        if result == 0x02 {
+            return Ok(CheckUidResponse::Throttle {});
         }
 
         let achievements_count = stream.read_u8().await?;
@@ -232,7 +243,7 @@ impl Networker {
             achievements.push(achievement_id);
         }
 
-        Ok(Some(achievements))
+        Ok(CheckUidResponse::Ok { achievements })
     }
 
     async fn get_audio(

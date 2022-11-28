@@ -1,6 +1,6 @@
-# Boop Box
+# Bloop Box
 
-Boop box client written in Rust with Tokio.
+Bloop box client written in Rust with Tokio.
 
 ## LED Status Codes
 
@@ -22,7 +22,7 @@ Boop box client written in Rust with Tokio.
 
 ### Cross compilation
 
-In order to compile Boop Box for the Raspberry Zero W, run the following command:
+In order to compile Bloop Box for the Raspberry Zero W, run the following command:
 
 ```bash
 cross build --target arm-unknown-linux-gnueabihf
@@ -30,24 +30,40 @@ cross build --target arm-unknown-linux-gnueabihf
 
 This will generate a debug build. In order to create a release build, add `--release` to the command.
 
-Copy the resulting binary from the target folder to `/home/pi/bin/boop-box`.
+Copy the resulting binary from the target folder to `/usr/bin/bloop-box`.
+
+### Install shared data
+
+You'll need to have a data package for the bloop box installed. For more information about this, please check the
+[Bloop Box Data Example](https://github.com/bloop-box/bloop-box-data-example)
+
+### User setup
+
+Apart from the shared data, you'll need to set up the bloop-box user and its run directory:
+
+```bash
+useradd -M -s /usr/sbin/nologin -d /nonexistent bloop-box
+mkdir -p /run/bloop-box
+chown bloop-box:bloop-box /run/bloop-box
+```
+
+On a development system, you might want to give the bloop-box user a login shell and a home directory.
 
 ### Systemd
 
-To have the boop box automatically start when the system boots, create a systemd file in
-`/lib/systemd/system/boop-box.service`:
+To have the bloop box automatically start when the system boots, create a systemd file in
+`/lib/systemd/system/bloop-box.service`:
 
 ```
 [Unit]
-Description=BoopBox
+Description=BloopBox
 After=network.target
 
 [Service]
 Type=simple
-User=pi
-ExecStart=/home/pi/bin/boop-box
+User=bloop-box
+ExecStart=/usr/bin/bloop-box
 Environment="RUST_LOG=info"
-WorkingDirectory=/home/pi
 Restart=always
 
 [Install]
@@ -58,7 +74,7 @@ Then run the following two commands to register and start the daemon:
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl start boop-box
+sudo systemctl start bloop-box
 ```
 
 ## System setup
@@ -79,12 +95,12 @@ network={
 }
 ```
 
-Then insert the SD card into the Boop Box and boot it up. After that, connect to it via SSH (pi:raspberry). The first
+Then insert the SD card into the Bloop Box and boot it up. After that, connect to it via SSH (pi:raspberry). The first
 thing you should do is to add your public key to `./.ssh/authorized_keys`. Then you should disable password
 authentication for security reasons.
 
-To do so, edit `/etc/ssh/sshd_config`, uncomment `PasswordAuthentication` and set the value to `no`. Then you can reload
-the SSH daemon: `sudo systemctl reload sshd`.
+To do so, edit `/etc/ssh/sshd_config`, uncomment `PasswordAuthentication` and set the value to `no`. Then you can
+reload the SSH daemon: `sudo systemctl reload sshd`.
 
 Then install the audio driver according to these instructions:
 https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp/raspberry-pi-usage

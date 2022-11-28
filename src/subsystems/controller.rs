@@ -15,7 +15,7 @@ use crate::nfc::thread::{start_nfc_listener, NfcCommand};
 use crate::subsystems::audio_player::PlayerCommand;
 use crate::subsystems::config_manager::{ConfigCommand, ConnectionConfig};
 use crate::subsystems::led::{LedState, BLUE, CYAN, GREEN, MAGENTA, RED, YELLOW};
-use crate::subsystems::networker::{NetworkerCommand, NetworkerStatus};
+use crate::subsystems::networker::{CheckUidResponse, NetworkerCommand, NetworkerStatus};
 use crate::wifi::wpa_supplicant::set_wifi;
 
 pub struct Controller {
@@ -91,15 +91,15 @@ impl Controller {
                     }
 
                     let (done_tx, done_rx) = oneshot::channel();
-                    self.audio_player.send(PlayerCommand::PlayBoop { done: done_tx }).await?;
+                    self.audio_player.send(PlayerCommand::PlayBloop { done: done_tx }).await?;
                     done_rx.await?;
 
                     let (response_tx, response_rx) = oneshot::channel();
                     self.networker.send(NetworkerCommand::CheckUid { uid, responder: response_tx }).await?;
-                    let maybe_achievements = response_rx.await?;
+                    let check_uid_response = response_rx.await?;
 
-                    match maybe_achievements {
-                        Some(achievements) => {
+                    match check_uid_response {
+                        CheckUidResponse::Ok {achievements} => {
                             for achievement_id in achievements.iter() {
                                 let (done_tx, done_rx) = oneshot::channel();
                                 self.audio_player.send(PlayerCommand::PlayConfirm { done: done_tx }).await?;
@@ -133,10 +133,18 @@ impl Controller {
                                 }
                             }
                         },
-                        None => {
+                        CheckUidResponse::Error {} => {
                             let (done_tx, done_rx) = oneshot::channel();
                             self.audio_player.send(PlayerCommand::PlayAsset {
                                 path: PathBuf::from("error.mp3"),
+                                done: done_tx,
+                            }).await?;
+                            done_rx.await?;
+                        },
+                        CheckUidResponse::Throttle {} => {
+                            let (done_tx, done_rx) = oneshot::channel();
+                            self.audio_player.send(PlayerCommand::PlayAsset {
+                                path: PathBuf::from("throttle.mp3"),
                                 done: done_tx,
                             }).await?;
                             done_rx.await?;
