@@ -11,9 +11,9 @@ if [ "$1" = "configure" ]; then
 
   usermod -a -G gpio,spi,audio bloop-box
 
-  if [ ! -d /run/bloop-box ]; then
-    mkdir /run/bloop-box
-    chown bloop-box:nogroup /run/bloop-box
+  if [ ! -d /var/lib/bloop-box ]; then
+    mkdir /var/lib/bloop-box
+    chown bloop-box:nogroup /var/lib/bloop-box
   fi
 fi
 

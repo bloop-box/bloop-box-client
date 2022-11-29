@@ -49,15 +49,15 @@ Copy the resulting binary from the target folder to `/usr/bin/bloop-box`.
 
 #### User setup
 
-Apart from the shared data, you'll need to set up the bloop-box user and its run directory:
+Apart from the shared data, you'll need to set up the bloop-box user and its lib directory:
 
 ```bash
 adduser --system --home /nonexistent --gecos "bloop-box" \
         --no-create-home --disabled-password \
         --quiet bloop-box
 usermod -a -G gpio,spi,audio bloop-box
-mkdir -p /run/bloop-box
-chown bloop-box:bloop-box /run/bloop-box
+mkdir -p /var/lib/bloop-box
+chown bloop-box:nogroup /var/lib/bloop-box
 ```
 
 On a development system, you might want to give the bloop-box user a login shell and a home directory.

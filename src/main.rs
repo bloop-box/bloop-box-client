@@ -25,7 +25,7 @@ async fn main() -> Result<()> {
     Builder::from_env(Env::default().default_filter_or("debug")).init();
 
     let share_dir = Path::new("/usr/share/bloop-box");
-    let data_dir = Path::new("/run/bloop-box");
+    let data_dir = Path::new("/var/lib/bloop-box");
     let cache_dir = Path::new(&data_dir).join("cache");
 
     if !cache_dir.is_dir() {

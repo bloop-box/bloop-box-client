@@ -7,7 +7,7 @@ if [ purge = "$1" ]; then
   else
      echo >&2 "not removing bloop-box system account because deluser command was not found"
   fi
-  rm -rf /run/bloop-box
+  rm -rf /var/lib/bloop-box
 fi
 
 #DEBHELPER#
