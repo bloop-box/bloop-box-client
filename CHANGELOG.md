@@ -1,3 +1,10 @@
+## [1.0.2](https://github.com/bloop-box/bloop-box-client/compare/v1.0.1...v1.0.2) (2022-11-29)
+
+
+### Bug Fixes
+
+* store state information in /var/lib/bloop-box ([746d28a](https://github.com/bloop-box/bloop-box-client/commit/746d28a3e5857435859830e2b42fc919c5f5f15d))
+
 ## [1.0.1](https://github.com/bloop-box/bloop-box-client/compare/v1.0.0...v1.0.1) (2022-11-28)
 
 
