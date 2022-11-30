@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/bloop-box/bloop-box-client/compare/v1.0.2...v1.1.0) (2022-11-30)
+
+
+### Features
+
+* add etc config to control GPIO pin layout ([6e0a294](https://github.com/bloop-box/bloop-box-client/commit/6e0a294200cc1d6366a1b2a81a33fb8d0ceb583e))
+
 ## [1.0.2](https://github.com/bloop-box/bloop-box-client/compare/v1.0.1...v1.0.2) (2022-11-29)
 
 
