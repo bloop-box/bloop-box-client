@@ -62,6 +62,12 @@ chown bloop-box:nogroup /var/lib/bloop-box
 
 On a development system, you might want to give the bloop-box user a login shell and a home directory.
 
+#### Hardware config
+
+In order to configure the Bloop Box for your specific hardware, you need to copy the `etc/bloop-box.conf` file to via
+SSH to `/etc/bloop-box`. If you are using our open hardware motherboard, you can leave all values in it as is, otherwise
+you need to adjust it to match your hardware.
+
 #### Systemd
 
 To have the bloop box automatically start when the system boots, create a systemd file in

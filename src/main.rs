@@ -2,6 +2,7 @@ extern crate core;
 
 use std::path::Path;
 
+use crate::etc_config::load_etc_config;
 use anyhow::Result;
 use env_logger::{Builder, Env};
 use tokio::fs;
@@ -16,6 +17,7 @@ use crate::subsystems::led::Led;
 use crate::subsystems::networker::Networker;
 use crate::subsystems::volume_control::VolumeControl;
 
+mod etc_config;
 mod nfc;
 mod subsystems;
 mod wifi;
@@ -24,6 +26,7 @@ mod wifi;
 async fn main() -> Result<()> {
     Builder::from_env(Env::default().default_filter_or("debug")).init();
 
+    let etc_config = load_etc_config().await?;
     let share_dir = Path::new("/usr/share/bloop-box");
     let data_dir = Path::new("/var/lib/bloop-box");
     let cache_dir = Path::new(&data_dir).join("cache");
@@ -39,7 +42,7 @@ async fn main() -> Result<()> {
     let (networker_status_tx, networker_status_rx) = mpsc::channel(8);
 
     Toplevel::new()
-        .start("Led", Led::new(led_rx).into_subsystem())
+        .start("Led", Led::new(etc_config.clone(), led_rx).into_subsystem())
         .start(
             "ConfigManager",
             ConfigManager::new(data_dir, config_rx).into_subsystem(),
@@ -56,7 +59,7 @@ async fn main() -> Result<()> {
         )
         .start(
             "VolumeControl",
-            VolumeControl::new(audio_player_tx.clone()).into_subsystem(),
+            VolumeControl::new(etc_config, audio_player_tx.clone()).into_subsystem(),
         )
         .start(
             "Networker",

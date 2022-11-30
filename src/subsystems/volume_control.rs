@@ -1,3 +1,4 @@
+use crate::etc_config::EtcConfig;
 use anyhow::{Error, Result};
 use log::info;
 use rppal::gpio::Gpio;
@@ -9,15 +10,16 @@ use crate::subsystems::audio_player::PlayerCommand;
 use crate::subsystems::button::Button;
 
 pub struct VolumeControl {
+    etc_config: EtcConfig,
     audio_player: mpsc::Sender<PlayerCommand>,
 }
 
-const GPIO_VOLUME_DOWN: u8 = 23;
-const GPIO_VOLUME_UP: u8 = 24;
-
 impl VolumeControl {
-    pub fn new(audio_player: mpsc::Sender<PlayerCommand>) -> Self {
-        Self { audio_player }
+    pub fn new(etc_config: EtcConfig, audio_player: mpsc::Sender<PlayerCommand>) -> Self {
+        Self {
+            etc_config,
+            audio_player,
+        }
     }
 
     async fn process(&mut self, mut button_rx: mpsc::Receiver<f32>) -> Result<()> {
@@ -46,8 +48,8 @@ impl IntoSubsystem<Error> for VolumeControl {
     async fn run(mut self, subsys: SubsystemHandle) -> Result<()> {
         let gpio = Gpio::new()?;
         let (button_tx, button_rx) = mpsc::channel::<f32>(1);
-        let volume_down_pin = gpio.get(GPIO_VOLUME_DOWN)?;
-        let volume_up_pin = gpio.get(GPIO_VOLUME_UP)?;
+        let volume_down_pin = gpio.get(self.etc_config.gpio.volume_down_button)?;
+        let volume_up_pin = gpio.get(self.etc_config.gpio.volume_up_button)?;
 
         subsys.start(
             "VolumeDownButton",

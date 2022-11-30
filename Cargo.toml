@@ -35,7 +35,7 @@ strip = "debuginfo"
 
 [package.metadata.deb]
 depends = "libnfc6, adduser, bloop-box-data, systemd"
-conf-files = ["/usr/local/etc/rpi0wcar.json", "/etc/systemd/system/rpi0wcar.service"]
+conf-files = ["/etc/bloop-box.conf"]
 maintainer-scripts = "debian/"
 systemd-units = { enable = true }
 extended-description = """\
@@ -43,3 +43,8 @@ Bloop Box client for sending bloops to a server.\
 """
 section = "games"
 priority = "optional"
+assets = [
+    ["target/arm-unknown-linux-gnueabihf/release/bloop-box", "usr/bin/", "755"],
+    ["README.md", "usr/share/doc/bloop-box/", "644"],
+    ["etc/bloop-box.conf", "etc/", "644"]
+]

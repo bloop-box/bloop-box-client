@@ -1,3 +1,4 @@
+use crate::etc_config::EtcConfig;
 use anyhow::{Error, Result};
 use log::info;
 use rppal::gpio::{Gpio, Level, OutputPin};
@@ -21,12 +22,13 @@ pub enum LedState {
 }
 
 pub struct Led {
+    etc_config: EtcConfig,
     rx: mpsc::Receiver<LedState>,
 }
 
 impl Led {
-    pub fn new(rx: mpsc::Receiver<LedState>) -> Self {
-        Self { rx }
+    pub fn new(etc_config: EtcConfig, rx: mpsc::Receiver<LedState>) -> Self {
+        Self { etc_config, rx }
     }
 
     async fn process(
@@ -89,7 +91,7 @@ impl IntoSubsystem<Error> for Led {
 
         subsys.start(
             "InternalLed",
-            InternalLed::new(internal_rx).into_subsystem(),
+            InternalLed::new(self.etc_config.clone(), internal_rx).into_subsystem(),
         );
 
         tokio::select! {
@@ -104,6 +106,7 @@ impl IntoSubsystem<Error> for Led {
 }
 
 struct InternalLed {
+    etc_config: EtcConfig,
     rx: mpsc::Receiver<InternalLedState>,
 }
 
@@ -113,13 +116,9 @@ enum InternalLedState {
     Off,
 }
 
-const GPIO_RED: u8 = 16;
-const GPIO_GREEN: u8 = 20;
-const GPIO_BLUE: u8 = 26;
-
 impl InternalLed {
-    pub fn new(rx: mpsc::Receiver<InternalLedState>) -> Self {
-        Self { rx }
+    pub fn new(etc_config: EtcConfig, rx: mpsc::Receiver<InternalLedState>) -> Self {
+        Self { etc_config, rx }
     }
 
     async fn process(
@@ -151,9 +150,9 @@ impl InternalLed {
 impl IntoSubsystem<Error> for InternalLed {
     async fn run(mut self, subsys: SubsystemHandle) -> Result<()> {
         let gpio = Gpio::new()?;
-        let mut red_pin = gpio.get(GPIO_RED)?.into_output_low();
-        let mut green_pin = gpio.get(GPIO_GREEN)?.into_output_low();
-        let mut blue_pin = gpio.get(GPIO_BLUE)?.into_output_low();
+        let mut red_pin = gpio.get(self.etc_config.gpio.red_led)?.into_output_low();
+        let mut green_pin = gpio.get(self.etc_config.gpio.green_led)?.into_output_low();
+        let mut blue_pin = gpio.get(self.etc_config.gpio.blue_led)?.into_output_low();
 
         tokio::select! {
             _ = subsys.on_shutdown_requested() => {
