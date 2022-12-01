@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use crate::nfc::reader::Uid;
 use anyhow::{Error, Result};
 use log::info;
 use serde::{Deserialize, Serialize};
@@ -25,7 +26,7 @@ pub struct VolumeConfig {
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Config {
-    pub config_uids: Vec<[u8; 4]>,
+    pub config_uids: Vec<Uid>,
     pub connection: Option<ConnectionConfig>,
     pub volume: VolumeConfig,
 }
@@ -33,10 +34,10 @@ pub struct Config {
 #[derive(Debug)]
 pub enum ConfigCommand {
     GetConfigUids {
-        responder: oneshot::Sender<Vec<[u8; 4]>>,
+        responder: oneshot::Sender<Vec<Uid>>,
     },
     SetConfigUids {
-        config_uids: Vec<[u8; 4]>,
+        config_uids: Vec<Uid>,
         responder: oneshot::Sender<()>,
     },
     GetVolume {

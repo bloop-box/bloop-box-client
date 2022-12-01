@@ -105,7 +105,7 @@ impl Controller {
                                 self.audio_player.send(PlayerCommand::PlayConfirm { done: done_tx }).await?;
                                 done_rx.await?;
 
-                                let filename = format!("{:x?}.mp3", achievement_id);
+                                let filename = format!("{}.mp3", hex::encode(achievement_id));
                                 let path = self.cache_path.join(&filename);
 
                                 if metadata(&path).await.is_err() {
@@ -184,12 +184,11 @@ impl Controller {
     async fn process_config_command(
         &mut self,
         uid: Uid,
-        config_uids: &mut Vec<[u8; 4]>,
+        config_uids: &mut Vec<Uid>,
         nfc: mpsc::Sender<NfcCommand>,
     ) -> Result<()> {
         let (value_tx, value_rx) = oneshot::channel();
         nfc.send(NfcCommand::Read {
-            uid,
             responder: value_tx,
         })
         .await?;
@@ -275,7 +274,7 @@ impl Controller {
 
     async fn add_config_uid(
         &mut self,
-        config_uids: &mut Vec<[u8; 4]>,
+        config_uids: &mut Vec<Uid>,
         nfc: mpsc::Sender<NfcCommand>,
     ) -> Result<()> {
         self.led.send(LedState::Blink { color: MAGENTA }).await?;

@@ -3,45 +3,16 @@ use nfc1::target_info::TargetInfo;
 use nfc1::BaudRate::Baud106;
 use nfc1::Error::Timeout as TimeoutError;
 use nfc1::ModulationType::Iso14443a;
+use nfc1::Property::EasyFraming;
 use nfc1::{Modulation, Property, Timeout};
 
 use crate::nfc::ndef::{parse_ndef_text_record, NdefMessageParser};
 
-pub type Uid = [u8; 4];
-
-#[derive(Copy, Clone)]
-struct AuthOption {
-    key_type: u8,
-    key: [u8; 6],
-}
+pub type Uid = [u8; 7];
 
 pub struct NfcReader<'a> {
     device: nfc1::Device<'a>,
 }
-
-const KEY_TYPE_A: u8 = 0x60;
-const KEY_TYPE_B: u8 = 0x61;
-const DEFAULT_KEY_A: [u8; 6] = [0xff, 0xff, 0xff, 0xff, 0xff, 0xff];
-const DEFAULT_KEY_B: [u8; 6] = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
-
-const AUTH_OPTIONS: [AuthOption; 4] = [
-    AuthOption {
-        key_type: KEY_TYPE_A,
-        key: DEFAULT_KEY_A,
-    },
-    AuthOption {
-        key_type: KEY_TYPE_A,
-        key: DEFAULT_KEY_B,
-    },
-    AuthOption {
-        key_type: KEY_TYPE_B,
-        key: DEFAULT_KEY_A,
-    },
-    AuthOption {
-        key_type: KEY_TYPE_B,
-        key: DEFAULT_KEY_B,
-    },
-];
 
 impl<'a> NfcReader<'a> {
     pub fn new(device: nfc1::Device<'a>) -> Self {
@@ -70,43 +41,33 @@ impl<'a> NfcReader<'a> {
             return None;
         }
 
-        Some(info.uid[0..4].try_into().unwrap())
+        Some(info.uid[0..7].try_into().unwrap())
     }
 
     pub fn check_for_release(&mut self) -> bool {
         self.device.initiator_target_is_present_any().is_err()
     }
 
-    pub fn read_first_plain_text_ndef_record(&mut self, uid: &Uid) -> Result<String> {
+    pub fn read_first_plain_text_ndef_record(&mut self) -> Result<String> {
         let mut ndef_message_parser = NdefMessageParser::new();
-        let mut maybe_auth_option: Option<AuthOption> = None;
 
-        'sector: for sector in 1..16 {
-            match maybe_auth_option {
-                Some(auth_option) => {
-                    self.authenticate_block(
-                        sector * 4 + 3,
-                        auth_option.key_type,
-                        &auth_option.key,
-                        uid,
-                    )?;
-                }
-                None => {
-                    let auth_option = self.try_authenticate_block(sector * 4 + 3, uid)?;
-                    maybe_auth_option = Some(auth_option);
-                }
+        self.check_version()?;
+        self.device.set_property_bool(EasyFraming, true)?;
+        let capabilities = self.read_block(3)?;
+
+        let total_bytes = (capabilities[2] as u32) * 8;
+        let total_pages = total_bytes / 4;
+        let total_quads = (total_pages / 4) as u8;
+
+        for quad in 1..total_quads + 1 {
+            let quad_data = self.read_block(4 * quad)?;
+            ndef_message_parser.add_data(&quad_data);
+
+            if ndef_message_parser.is_done() {
+                break;
             }
 
-            for block in 0..3 {
-                let block_data = self.read_block(sector * 4 + block)?;
-                ndef_message_parser.add_data(&block_data);
-
-                if ndef_message_parser.is_done() {
-                    break 'sector;
-                }
-            }
-
-            if !ndef_message_parser.has_started() {
+            if quad == 2 && !ndef_message_parser.has_started() {
                 return Err(anyhow!("No NDEF message found in first sector"));
             }
         }
@@ -119,6 +80,27 @@ impl<'a> NfcReader<'a> {
         record.text()
     }
 
+    fn check_version(&mut self) -> Result<()> {
+        self.device.set_property_bool(EasyFraming, false)?;
+        let version = self
+            .device
+            .initiator_transceive_bytes(&[0x60], 8, Timeout::Default)?;
+
+        if version[0..6] != [0x00, 0x04, 0x04, 0x02, 0x01, 0x00] {
+            return Err(anyhow!("Version mismatch, unsupported tag"));
+        }
+
+        if ![0x0f, 0x11, 0x13].contains(&version[6]) {
+            return Err(anyhow!("Version mismatch, unsupported subtype of tag"));
+        }
+
+        if version[7] != 0x03 {
+            return Err(anyhow!("Version mismatch, unsupported protocol"));
+        }
+
+        Ok(())
+    }
+
     fn read_block(&mut self, block_number: u8) -> Result<[u8; 16]> {
         let packet: [u8; 2] = [0x30, block_number];
 
@@ -126,54 +108,5 @@ impl<'a> NfcReader<'a> {
             .device
             .initiator_transceive_bytes(&packet, 16, Timeout::Default)?;
         Ok(response[..].try_into()?)
-    }
-
-    fn try_authenticate_block(&mut self, block_number: u8, uid: &[u8; 4]) -> Result<AuthOption> {
-        for auth_option in AUTH_OPTIONS {
-            let auth_result =
-                self.authenticate_block(block_number, auth_option.key_type, &auth_option.key, uid);
-
-            match auth_result {
-                Ok(()) => {
-                    return Ok(auth_option);
-                }
-                Err(_) => {
-                    self.device.initiator_select_passive_target(&Modulation {
-                        modulation_type: Iso14443a,
-                        baud_rate: Baud106,
-                    })?;
-                }
-            }
-        }
-
-        Err(anyhow!("No key matched sector"))
-    }
-
-    fn authenticate_block(
-        &mut self,
-        block_number: u8,
-        key_type: u8,
-        key: &[u8; 6],
-        uid: &[u8; 4],
-    ) -> Result<()> {
-        let packet: [u8; 12] = [
-            key_type,
-            block_number,
-            key[0],
-            key[1],
-            key[2],
-            key[3],
-            key[4],
-            key[5],
-            uid[0],
-            uid[1],
-            uid[2],
-            uid[3],
-        ];
-
-        self.device
-            .initiator_transceive_bytes(&packet, 0, Timeout::Default)?;
-
-        Ok(())
     }
 }

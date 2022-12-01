@@ -4,7 +4,19 @@
 
 Bloop box client written in Rust with Tokio.
 
+## NFC Tag Support
+
+While for reading UIDs any NFC tag supporting Iso14443a with a baud rate of 106 is supported, it is recommended to use
+tags with a 7-byte UID. Tags with shorter UIDs will be padded with zeroes, while tags with longer UIDs will be
+truncated.
+
+When it comes to config tags though you have to use either NTAG 213, 215 or 216. Other NTAG formats may work but are
+not tested.
+
 ## LED Status Codes
+
+The status RGB LED will display the current status of the Bloop Box. If no user interaction is required, you'll get a
+static light, otherwise a blinking one.
 
 ### Static
 

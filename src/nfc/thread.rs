@@ -14,7 +14,6 @@ pub enum NfcCommand {
         cancel_rx: oneshot::Receiver<()>,
     },
     Read {
-        uid: Uid,
         responder: oneshot::Sender<Option<String>>,
     },
     Release {
@@ -51,8 +50,8 @@ pub fn start_nfc_listener(mut nfc_rx: mpsc::Receiver<NfcCommand>) {
 
                     responder.send(uid).unwrap();
                 }
-                Read { uid, responder } => {
-                    let result = nfc_reader.read_first_plain_text_ndef_record(&uid);
+                Read { responder } => {
+                    let result = nfc_reader.read_first_plain_text_ndef_record();
 
                     match result {
                         Ok(value) => responder.send(Some(value)).unwrap(),
