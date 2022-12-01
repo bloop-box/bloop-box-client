@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/bloop-box/bloop-box-client/compare/v1.1.0...v1.2.0) (2022-12-01)
+
+
+### Features
+
+* replace old mifare classic data reader with ntag reader ([1b5379c](https://github.com/bloop-box/bloop-box-client/commit/1b5379c4dcc999554df970b4447df64b36cb53d5))
+
 # [1.1.0](https://github.com/bloop-box/bloop-box-client/compare/v1.0.2...v1.1.0) (2022-11-30)
 
 
