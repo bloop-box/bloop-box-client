@@ -32,6 +32,12 @@ static light, otherwise a blinking one.
 - Blue: Connecting to server
 - Red: Invalid server credentials
 
+## Pre-requisites
+
+Before you can deploy the Bloop Box client you need to set up the Raspberry Pi of course, including audio and NFC. If
+you are using our reference design for the hardware, the steps to take are document in the
+[System setup section](#system-setup).
+
 ## Shared data
 
 You'll need to have a data package for the bloop box installed. For more information about this, please check the
