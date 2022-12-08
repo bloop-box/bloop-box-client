@@ -1,5 +1,6 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde::Deserialize;
+use std::path::Path;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 
@@ -39,7 +40,10 @@ pub struct EtcConfig {
 }
 
 pub async fn load_etc_config() -> Result<EtcConfig> {
-    let mut file = File::open("/etc/bloop-box.conf").await?;
+    let path = Path::new("/etc/bloop-box.conf");
+    let mut file = File::open(&path)
+        .await
+        .with_context(|| format!("Failed to open {}", path.display()))?;
     let mut toml_config = String::new();
     file.read_to_string(&mut toml_config).await?;
     let config: EtcConfig = toml::from_str(&toml_config)?;

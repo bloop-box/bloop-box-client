@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use anyhow::{Error, Result};
 
-use log::info;
+use log::{debug, info};
 
 use thiserror;
 
@@ -142,12 +142,16 @@ impl Networker {
                                 CheckUid { uid, responder } => {
                                     let stream = match maybe_stream {
                                         Some(ref mut stream) => stream,
-                                        None => continue,
+                                        None => {
+                                            responder.send(CheckUidResponse::Error {}).unwrap();
+                                            continue;
+                                        },
                                     };
 
                                     match self.check_uid(stream, &uid).await {
                                         Ok(response) => responder.send(response).unwrap(),
-                                        Err(_) => {
+                                        Err(error) => {
+                                            debug!("Lost connection due to: {}", error);
                                             maybe_stream = None;
                                             self.status_tx.send(NetworkerStatus::Disconnected).await?;
                                             responder.send(CheckUidResponse::Error {}).unwrap();
@@ -157,12 +161,16 @@ impl Networker {
                                 GetAudio { id, responder } => {
                                     let stream = match maybe_stream {
                                         Some(ref mut stream) => stream,
-                                        None => continue,
+                                        None => {
+                                            responder.send(None).unwrap();
+                                            continue;
+                                        },
                                     };
 
                                     match self.get_audio(stream, &id).await {
                                         Ok(data) => responder.send(data).unwrap(),
-                                        Err(_) => {
+                                        Err(error) => {
+                                            debug!("Lost connection due to: {}", error);
                                             maybe_stream = None;
                                             self.status_tx.send(NetworkerStatus::Disconnected).await?;
                                             responder.send(None).unwrap();

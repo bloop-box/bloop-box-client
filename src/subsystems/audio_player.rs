@@ -4,7 +4,7 @@ use std::thread::sleep;
 use std::time::Duration;
 
 use crate::subsystems::config_manager::ConfigCommand;
-use anyhow::{anyhow, Error, Result};
+use anyhow::{anyhow, Context, Error, Result};
 use glob::glob;
 use log::info;
 use rand::seq::SliceRandom;
@@ -63,7 +63,7 @@ impl AudioPlayer {
 
     async fn process(&mut self) -> Result<()> {
         let (soloud_tx, mut soloud_rx) = mpsc::channel(8);
-        let share_path = self.share_path.to_str().unwrap().to_owned();
+        let share_path = self.share_path.to_owned();
 
         thread::spawn(move || {
             struct PlayState {
@@ -73,18 +73,19 @@ impl AudioPlayer {
 
             let mut soloud = Soloud::default().unwrap();
             let mut play_wav = audio::Wav::default();
+            let volume_change_path = share_path.join(Path::new("volume-change.mp3"));
             let mut volume_change_wav = audio::Wav::default();
-            volume_change_wav
-                .load(format!("{}/volume-change.mp3", share_path))
-                .unwrap();
+            volume_change_wav.load(volume_change_path).unwrap();
 
             let mut handle_command = |soloud: &mut Soloud, command| {
                 use SoloudCommand::*;
 
                 match command {
                     PlayAsset { path, done } => {
+                        let path = share_path.join(path);
                         play_wav
-                            .load(format!("{}/{}", share_path, path.to_str().unwrap()))
+                            .load(&path)
+                            .with_context(|| format!("Failed to play {}", path.display()))
                             .unwrap();
                         return Some(PlayState {
                             handle: soloud.play(&play_wav),
@@ -92,7 +93,10 @@ impl AudioPlayer {
                         });
                     }
                     PlayFile { path, done } => {
-                        play_wav.load(path).unwrap();
+                        play_wav
+                            .load(&path)
+                            .with_context(|| format!("Failed to play {}", path.display()))
+                            .unwrap();
                         return Some(PlayState {
                             handle: soloud.play(&play_wav),
                             done,

@@ -123,14 +123,14 @@ impl Controller {
                                         }
                                         None => continue,
                                     }
-
-                                    let (done_tx, done_rx) = oneshot::channel();
-                                    self.audio_player.send(PlayerCommand::PlayCached {
-                                        path: PathBuf::from(filename),
-                                        done: done_tx,
-                                    }).await?;
-                                    done_rx.await?;
                                 }
+
+                                let (done_tx, done_rx) = oneshot::channel();
+                                self.audio_player.send(PlayerCommand::PlayCached {
+                                    path: PathBuf::from(filename),
+                                    done: done_tx,
+                                }).await?;
+                                done_rx.await?;
                             }
                         },
                         CheckUidResponse::Error {} => {
