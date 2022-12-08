@@ -1,3 +1,10 @@
+## [1.2.1](https://github.com/bloop-box/bloop-box-client/compare/v1.2.0...v1.2.1) (2022-12-08)
+
+
+### Bug Fixes
+
+* fix various small issues ([6bcc579](https://github.com/bloop-box/bloop-box-client/commit/6bcc579fb2639d5e21d7442e5e6bbad4e1549c95))
+
 # [1.2.0](https://github.com/bloop-box/bloop-box-client/compare/v1.1.0...v1.2.0) (2022-12-01)
 
 
