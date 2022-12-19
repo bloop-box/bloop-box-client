@@ -4,6 +4,26 @@ use std::path::Path;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 
+fn default_nfc_device() -> String {
+    "/dev/spidev0.0".to_string()
+}
+fn default_nfc_max_speed() -> u32 {
+    1_000_000
+}
+fn default_nfc_reset_pin() -> u8 {
+    25
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct NfcConfig {
+    #[serde(default = "default_nfc_device")]
+    pub device: String,
+    #[serde(default = "default_nfc_max_speed")]
+    pub max_speed: u32,
+    #[serde(default = "default_nfc_reset_pin")]
+    pub reset_pin: u8,
+}
+
 fn default_volume_down_button() -> u8 {
     24
 }
@@ -36,6 +56,7 @@ pub struct GpioConfig {
 
 #[derive(Clone, Deserialize)]
 pub struct EtcConfig {
+    pub nfc: NfcConfig,
     pub gpio: GpioConfig,
 }
 

@@ -59,7 +59,7 @@ async fn main() -> Result<()> {
         )
         .start(
             "VolumeControl",
-            VolumeControl::new(etc_config, audio_player_tx.clone()).into_subsystem(),
+            VolumeControl::new(etc_config.clone(), audio_player_tx.clone()).into_subsystem(),
         )
         .start(
             "Networker",
@@ -68,6 +68,7 @@ async fn main() -> Result<()> {
         .start(
             "Controller",
             Controller::new(
+                etc_config,
                 cache_dir,
                 audio_player_tx,
                 led_tx,

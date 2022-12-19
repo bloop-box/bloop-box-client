@@ -116,7 +116,7 @@ sudo systemctl start bloop-box
 
 ## System setup
 
-- Flash an SD card with the Raspian Bullseye Lite image.
+- Flash an SD card with the latest Raspian Lite image.
 - Create an empty file `/boot/ssh`.
 
 Create a file `/boot/wpa_supplicant.conf` with the following contents and adjust SSID and PSK:
@@ -142,16 +142,8 @@ reload the SSH daemon: `sudo systemctl reload sshd`.
 Then install the audio driver according to these instructions:
 https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp/raspberry-pi-usage
 
-Next set up libnfc:
+Next you need to enable SPI for the MFRC522 NFC reader:
 
 ```bash
-sudo apt install libnfc6
 sudo raspi-config nonint do_spi 0
-```
-
-Now you just have to configure the NFC device. Do so by editing `/etc/nfc/libnfc.conf` and modify the last two lines:
-
-```
-device.name = "pn532"
-device.connstring = "pn532_spi:/dev/spidev0.0:50000"
 ```

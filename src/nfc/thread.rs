@@ -1,3 +1,10 @@
+use linux_embedded_hal as hal;
+
+use crate::etc_config::NfcConfig;
+use hal::spidev::{SpiModeFlags, SpidevOptions};
+use hal::Spidev;
+use mfrc522::Mfrc522;
+use rppal::gpio::Gpio;
 use std::thread;
 use std::thread::sleep;
 use std::time::Duration;
@@ -22,11 +29,25 @@ pub enum NfcCommand {
     },
 }
 
-pub fn start_nfc_listener(mut nfc_rx: mpsc::Receiver<NfcCommand>) {
+pub fn start_nfc_listener(mut nfc_rx: mpsc::Receiver<NfcCommand>, config: NfcConfig) {
     thread::spawn(move || {
-        let mut context = nfc1::Context::new().unwrap();
-        let device = context.open().unwrap();
-        let mut nfc_reader = NfcReader::new(device);
+        let mut spi = Spidev::open(config.device).unwrap();
+        let options = SpidevOptions::new()
+            .max_speed_hz(config.max_speed)
+            .mode(SpiModeFlags::SPI_MODE_0)
+            .build();
+        spi.configure(&options).unwrap();
+        let mfrc522 = Mfrc522::new(spi).unwrap();
+        let mut nfc_reader = NfcReader::new(mfrc522);
+
+        let mut reset_pin = Gpio::new()
+            .unwrap()
+            .get(config.reset_pin)
+            .unwrap()
+            .into_output_low();
+        sleep(Duration::from_nanos(150));
+        reset_pin.set_high();
+        sleep(Duration::from_micros(50));
 
         'command: while let Some(command) = nfc_rx.blocking_recv() {
             use NfcCommand::*;

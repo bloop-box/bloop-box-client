@@ -1,3 +1,4 @@
+use crate::etc_config::EtcConfig;
 use anyhow::{anyhow, Error, Result};
 use log::info;
 use std::path::PathBuf;
@@ -19,6 +20,7 @@ use crate::subsystems::networker::{CheckUidResponse, NetworkerCommand, Networker
 use crate::wifi::wpa_supplicant::set_wifi;
 
 pub struct Controller {
+    etc_config: EtcConfig,
     cache_path: PathBuf,
     audio_player: mpsc::Sender<PlayerCommand>,
     led: mpsc::Sender<LedState>,
@@ -30,6 +32,7 @@ pub struct Controller {
 
 impl Controller {
     pub fn new(
+        etc_config: EtcConfig,
         cache_path: PathBuf,
         audio_player: mpsc::Sender<PlayerCommand>,
         led: mpsc::Sender<LedState>,
@@ -38,6 +41,7 @@ impl Controller {
         networker_status_rx: mpsc::Receiver<NetworkerStatus>,
     ) -> Self {
         Self {
+            etc_config,
             cache_path,
             audio_player,
             led,
@@ -309,7 +313,7 @@ impl Controller {
 impl IntoSubsystem<Error> for Controller {
     async fn run(mut self, subsys: SubsystemHandle) -> Result<()> {
         let (nfc_tx, nfc_rx) = mpsc::channel(1);
-        start_nfc_listener(nfc_rx);
+        start_nfc_listener(nfc_rx, self.etc_config.nfc.clone());
 
         tokio::select! {
             _ = subsys.on_shutdown_requested() => {

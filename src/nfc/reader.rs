@@ -1,66 +1,76 @@
 use anyhow::{anyhow, Result};
-use nfc1::target_info::TargetInfo;
-use nfc1::BaudRate::Baud106;
-use nfc1::Error::Timeout as TimeoutError;
-use nfc1::ModulationType::Iso14443a;
-use nfc1::Property::EasyFraming;
-use nfc1::{Modulation, Property, Timeout};
+use embedded_hal as hal;
+use hal::blocking::spi;
+use hal::digital::v2::OutputPin;
+use mfrc522::Mfrc522;
 
 use crate::nfc::ndef::{parse_ndef_text_record, NdefMessageParser};
 
 pub type Uid = [u8; 7];
 
-pub struct NfcReader<'a> {
-    device: nfc1::Device<'a>,
+pub struct NfcReader<SPI, NSS> {
+    mfrc522: Mfrc522<SPI, NSS>,
 }
 
-impl<'a> NfcReader<'a> {
-    pub fn new(device: nfc1::Device<'a>) -> Self {
-        Self { device }
+impl<E, SPI, NSS> NfcReader<SPI, NSS>
+where
+    SPI: spi::Transfer<u8, Error = E> + spi::Write<u8, Error = E>,
+    NSS: OutputPin,
+{
+    pub fn new(mfrc522: Mfrc522<SPI, NSS>) -> Self {
+        Self { mfrc522 }
     }
 
     pub fn select_target(&mut self) -> Option<Uid> {
-        self.device
-            .set_property_bool(Property::InfiniteSelect, false)
-            .unwrap();
-        let result = self.device.initiator_select_passive_target(&Modulation {
-            modulation_type: Iso14443a,
-            baud_rate: Baud106,
-        });
-
-        let info = match result {
-            Ok(target) => match target.target_info {
-                TargetInfo::Iso14443a(info) => info,
-                _ => return None,
-            },
-            Err(TimeoutError {}) => return None,
-            Err(other) => panic!("Failed to select target: {:?}", other),
+        let atqa = match self.mfrc522.reqa() {
+            Ok(atqa) => atqa,
+            Err(_) => return None,
         };
 
-        if info.uid == [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] {
-            return None;
+        let raw_uid = match self.mfrc522.select(&atqa) {
+            Ok(uid) => uid,
+            Err(_) => return None,
+        };
+
+        let mut uid: Uid = [0; 7];
+
+        match raw_uid {
+            mfrc522::Uid::Single(raw_uid) => uid[0..4].copy_from_slice(raw_uid.as_bytes()),
+            mfrc522::Uid::Double(raw_uid) => uid.copy_from_slice(raw_uid.as_bytes()),
+            mfrc522::Uid::Triple(raw_uid) => uid.copy_from_slice(&raw_uid.as_bytes()[0..7]),
         }
 
-        Some(info.uid[0..7].try_into().unwrap())
+        Some(uid)
     }
 
     pub fn check_for_release(&mut self) -> bool {
-        self.device.initiator_target_is_present_any().is_err()
+        match self.mfrc522.reqa() {
+            Ok(atqa) => self.mfrc522.select(&atqa).is_err(),
+            Err(_) => true,
+        }
     }
 
     pub fn read_first_plain_text_ndef_record(&mut self) -> Result<String> {
         let mut ndef_message_parser = NdefMessageParser::new();
 
-        self.check_version()?;
-        self.device.set_property_bool(EasyFraming, true)?;
-        let capabilities = self.read_block(3)?;
+        // @todo verify that tag is NTAG and check NTAG version
+        // @see https://gitlab.com/jspngh/rfid-rs/-/issues/10
+        // @see https://github.com/bloop-box/bloop-box-client/blob/v1.2.1/src/nfc/reader.rs#L83-L102
+
+        let capabilities = self
+            .mfrc522
+            .mf_read(3)
+            .map_err(|_| anyhow!("Failed to read block {}", 3))?;
 
         let total_bytes = (capabilities[2] as u32) * 8;
         let total_pages = total_bytes / 4;
         let total_quads = (total_pages / 4) as u8;
 
         for quad in 1..total_quads + 1 {
-            let quad_data = self.read_block(4 * quad)?;
+            let quad_data = self
+                .mfrc522
+                .mf_read(4 * quad)
+                .map_err(|_| anyhow!("Failed to read block {}", 4 * quad))?;
             ndef_message_parser.add_data(&quad_data);
 
             if ndef_message_parser.is_done() {
@@ -78,35 +88,5 @@ impl<'a> NfcReader<'a> {
 
         let record = parse_ndef_text_record(&ndef_message_parser.data)?;
         record.text()
-    }
-
-    fn check_version(&mut self) -> Result<()> {
-        self.device.set_property_bool(EasyFraming, false)?;
-        let version = self
-            .device
-            .initiator_transceive_bytes(&[0x60], 8, Timeout::Default)?;
-
-        if version[0..6] != [0x00, 0x04, 0x04, 0x02, 0x01, 0x00] {
-            return Err(anyhow!("Version mismatch, unsupported tag"));
-        }
-
-        if ![0x0f, 0x11, 0x13].contains(&version[6]) {
-            return Err(anyhow!("Version mismatch, unsupported subtype of tag"));
-        }
-
-        if version[7] != 0x03 {
-            return Err(anyhow!("Version mismatch, unsupported protocol"));
-        }
-
-        Ok(())
-    }
-
-    fn read_block(&mut self, block_number: u8) -> Result<[u8; 16]> {
-        let packet: [u8; 2] = [0x30, block_number];
-
-        let response = self
-            .device
-            .initiator_transceive_bytes(&packet, 16, Timeout::Default)?;
-        Ok(response[..].try_into()?)
     }
 }
