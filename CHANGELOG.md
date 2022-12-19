@@ -1,3 +1,18 @@
+# [2.0.0](https://github.com/bloop-box/bloop-box-client/compare/v1.2.1...v2.0.0) (2022-12-19)
+
+
+### Features
+
+* add shutdown config command ([711147a](https://github.com/bloop-box/bloop-box-client/commit/711147a908e32bec764f20df35e23601dea715f9))
+* **nfc:** replace libnfc with mfrc522 driver to drive rc522 chip ([c27dc7e](https://github.com/bloop-box/bloop-box-client/commit/c27dc7e2ad2bfdff587a799d21e0ab95be3e19de))
+
+
+### BREAKING CHANGES
+
+* **nfc:** As the pn532 chip had issues with reading NTAGs reliably, the
+bloop box system was changed over to the rc522 chip. The NFC functionality is
+now completely handled by the native mfrc522 library instead of libnfc.
+
 ## [1.2.1](https://github.com/bloop-box/bloop-box-client/compare/v1.2.0...v1.2.1) (2022-12-08)
 
 
