@@ -4,7 +4,19 @@
 
 Bloop box client written in Rust with Tokio.
 
-## NFC Tag Support
+## Table of Contents
+
+1. [NFC tag support](#nfc-tag-support)
+2. [Run-time configuration](#run-time-configuration)
+3. [LED status codes](#led-status-codes)
+4. [Pre-requisites](#pre-requisites)
+5. [Shared data](#shared-data)
+6. [Deployment](#deployment)
+   1. [Automatic](#automatic)
+   2. [Manual](#manual)
+7. [System Setup](#system-setup)
+
+## NFC tag support
 
 While for reading UIDs any NFC tag supporting Iso14443a with a baud rate of 106 is supported, it is recommended to use
 tags with a 7-byte UID. Tags with shorter UIDs will be padded with zeroes, while tags with longer UIDs will be
@@ -13,7 +25,25 @@ truncated.
 When it comes to config tags though you have to use either NTAG 213, 215 or 216. Other NTAG formats may work but are
 not tested.
 
-## LED Status Codes
+## Run-time configuration
+
+You can change all configuration at run-time via text records on an NTAG tag. A helpful utility to automatically
+generate the text records [is available here](https://github.com/bloop-box/bloop-box-config). If you prefer to generate
+the config tags in another way, following is the format for the text record:
+
+Each record begins with a single letter denoting the command. It is followed by a JSON array with zero or more
+arguments.
+
+| Command | Description                       | Arguments                     |
+|---------|-----------------------------------|-------------------------------|
+| w       | Set WiFi Credentials              | SSID, Password                |
+| c       | Set Connection Details            | Host, Port, Client ID, Secret |
+| v       | Set Max Volume                    | Volume (0.0 - 0.1)            |
+| u       | Add additional config tag         |                               |
+| r       | Remove all but current config tag |                               |
+| s       | Shut down system                  |                               |
+
+## LED status codes
 
 The status RGB LED will display the current status of the Bloop Box. If no user interaction is required, you'll get a
 static light, otherwise a blinking one.
@@ -79,6 +109,12 @@ chown bloop-box:nogroup /var/lib/bloop-box
 ```
 
 On a development system, you might want to give the bloop-box user a login shell and a home directory.
+
+#### Allow bloop-box user to shut down system
+
+The bloop box client has the capability to shut down the system when it receives the right config command. In order to
+do so it needs sudo privilege to call the `shutdown` binary. You can accomplish this by copying the
+`011_bloop-box-shutdown` file from the `etc` directory to `/etc/sudoers.d` and change its permissions ot `440`.
 
 #### Hardware config
 

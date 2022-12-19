@@ -2,6 +2,7 @@ use crate::etc_config::EtcConfig;
 use anyhow::{anyhow, Error, Result};
 use log::info;
 use std::path::PathBuf;
+use std::process::Command;
 use std::time::Duration;
 use tokio::fs::metadata;
 use tokio::fs::File;
@@ -254,6 +255,12 @@ impl Controller {
                     })
                     .await?;
                 config_rx.await?;
+            }
+            's' => {
+                Command::new("sudo")
+                    .args(["shutdown", "now"])
+                    .output()
+                    .expect("Failed to shut down system");
             }
             _ => {
                 return Err(anyhow!("Value too short"));
