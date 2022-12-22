@@ -1,3 +1,10 @@
+## [2.0.1](https://github.com/bloop-box/bloop-box-client/compare/v2.0.0...v2.0.1) (2022-12-22)
+
+
+### Bug Fixes
+
+* add trailing slash to debian sudoers.d deployment ([3c816b2](https://github.com/bloop-box/bloop-box-client/commit/3c816b2a9fd628d386308544a926192540594f60))
+
 # [2.0.0](https://github.com/bloop-box/bloop-box-client/compare/v1.2.1...v2.0.0) (2022-12-19)
 
 
