@@ -24,7 +24,7 @@ fi
 mkdir tar-hack
 tar -C tar-hack -xf "${DATA_ARCHIVE}"
 pushd tar-hack || exit 1
-tar c${EXTRA_TAR_ARGS}f "../${DATA_ARCHIVE}" ./*
+tar c${EXTRA_TAR_ARGS}f "../${DATA_ARCHIVE}" --owner=0 --group=0 ./*
 popd || exit 1
 tar tf "${DATA_ARCHIVE}"
 ar r "${DEB_FILE_NAME}" "${DATA_ARCHIVE}"
