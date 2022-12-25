@@ -1,3 +1,10 @@
+## [2.0.2](https://github.com/bloop-box/bloop-box-client/compare/v2.0.1...v2.0.2) (2022-12-25)
+
+
+### Bug Fixes
+
+* **release:** set owner and group to 0 when re-packaging data.tar.xz ([99c8590](https://github.com/bloop-box/bloop-box-client/commit/99c8590f26caf43f34b8c9c2345cad3f6c4cfd5f))
+
 ## [2.0.1](https://github.com/bloop-box/bloop-box-client/compare/v2.0.0...v2.0.1) (2022-12-22)
 
 
