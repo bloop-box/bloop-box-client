@@ -1,3 +1,10 @@
+## [2.0.3](https://github.com/bloop-box/bloop-box-client/compare/v2.0.2...v2.0.3) (2022-12-26)
+
+
+### Bug Fixes
+
+* **wifi:** add user to netdev group ([bdc12e1](https://github.com/bloop-box/bloop-box-client/commit/bdc12e1a50e21b5ac062f7f61ab0d3e47362d3a8))
+
 ## [2.0.2](https://github.com/bloop-box/bloop-box-client/compare/v2.0.1...v2.0.2) (2022-12-25)
 
 
