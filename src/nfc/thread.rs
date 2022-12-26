@@ -69,7 +69,9 @@ pub fn start_nfc_listener(mut nfc_rx: mpsc::Receiver<NfcCommand>, config: NfcCon
                         sleep(Duration::from_millis(150));
                     };
 
-                    responder.send(uid).unwrap();
+                    // During poll we ignore possible send errors, as the receiver might be dropped due to network
+                    // status updates.
+                    let _ = responder.send(uid);
                 }
                 Read { responder } => {
                     let result = nfc_reader.read_first_plain_text_ndef_record();
