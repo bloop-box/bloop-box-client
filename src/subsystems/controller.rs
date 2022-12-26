@@ -96,7 +96,7 @@ impl Controller {
                         continue;
                     }
 
-                    if matches!(self.networker_status, NetworkerStatus::Connected) {
+                    if !matches!(self.networker_status, NetworkerStatus::Connected) {
                         self.wait_for_release(&nfc).await?;
                         continue;
                     }
