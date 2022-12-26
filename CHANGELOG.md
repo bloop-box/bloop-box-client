@@ -1,3 +1,11 @@
+## [2.0.4](https://github.com/bloop-box/bloop-box-client/compare/v2.0.3...v2.0.4) (2022-12-26)
+
+
+### Bug Fixes
+
+* **controller:** do not accept non config uids when not connected ([1b035f7](https://github.com/bloop-box/bloop-box-client/commit/1b035f7d7992bbfab1912144ad05b38d12cb4209))
+* **nfc:** check twice for card release ([e4a2a80](https://github.com/bloop-box/bloop-box-client/commit/e4a2a80e66f1ab86745cf86ac7753086dc0c0fb1))
+
 ## [2.0.3](https://github.com/bloop-box/bloop-box-client/compare/v2.0.2...v2.0.3) (2022-12-26)
 
 
