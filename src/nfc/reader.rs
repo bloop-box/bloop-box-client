@@ -44,9 +44,19 @@ where
     }
 
     pub fn check_for_release(&mut self) -> bool {
-        match self.mfrc522.reqa() {
-            Ok(atqa) => self.mfrc522.select(&atqa).is_err(),
-            Err(_) => true,
+        // For some bizarre reason the MFRC522 chip ping-pongs between found and not found state, so we have to check
+        // twice. This is documented in multiple issue of several libraries.
+        // @see https://github.com/pimylifeup/MFRC522-python/issues/15#issuecomment-511671924
+        if self.mfrc522.wupa().is_ok() {
+            return false;
+        }
+
+        match self.mfrc522.wupa() {
+            Ok(_) => false,
+            Err(e) => match e {
+                mfrc522::Error::Collision => false,
+                _ => true,
+            }
         }
     }
 
