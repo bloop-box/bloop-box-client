@@ -1,8 +1,8 @@
 #!/bin/sh
 set -e
 
-# create a user to run as (code stolen from dovecot-common)
 if [ "$1" = "configure" ]; then
+  # Create user to run as
   if [ -z "`id -u bloop-box 2> /dev/null`" ]; then
     adduser --system --home /nonexistent --gecos "bloop-box" \
             --no-create-home --disabled-password \
@@ -11,10 +11,15 @@ if [ "$1" = "configure" ]; then
 
   usermod -a -G gpio,spi,audio,netdev bloop-box
 
+  # Create lib directory if missing
   if [ ! -d /var/lib/bloop-box ]; then
     mkdir /var/lib/bloop-box
     chown bloop-box:nogroup /var/lib/bloop-box
   fi
+
+  # Activate udev rule
+  udevadm control --reload-rules
+  udevadm trigger
 fi
 
 #DEBHELPER#

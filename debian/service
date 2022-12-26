@@ -1,6 +1,7 @@
 [Unit]
 Description=BloopBox
-After=network.target
+Wants=dev-spidev0.0.device
+After=network.target dev-spidev0.0.device
 StartLimitIntervalSec=0
 
 [Service]
