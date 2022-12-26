@@ -9,7 +9,7 @@ if [ "$1" = "configure" ]; then
             --quiet bloop-box || true
   fi
 
-  usermod -a -G gpio,spi,audio bloop-box
+  usermod -a -G gpio,spi,audio,netdev bloop-box
 
   if [ ! -d /var/lib/bloop-box ]; then
     mkdir /var/lib/bloop-box
