@@ -31,7 +31,7 @@ pub type AchievementId = [u8; 20];
 #[error("Invalid credentials")]
 struct InvalidCredentialsError;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub enum NetworkerStatus {
     NoConfig,
     InvalidCredentials,
