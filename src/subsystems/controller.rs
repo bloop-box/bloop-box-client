@@ -81,9 +81,10 @@ impl Controller {
             tokio::select! {
                 result = uid_rx => {
                     let uid = result?;
-                    self.led.send(LedState::On { color: YELLOW }).await?;
 
                     if config_uids.contains(&uid) {
+                        self.led.send(LedState::On { color: YELLOW }).await?;
+
                         if self.process_config_command(uid, &mut config_uids, nfc.clone()).await.is_ok() {
                             self.led.send(LedState::On { color: CYAN }).await?;
                         } else {
@@ -94,6 +95,13 @@ impl Controller {
                         self.wait_for_release(&nfc).await?;
                         continue;
                     }
+
+                    if self.networker_status != NetworkerStatus::Connected {
+                        self.wait_for_release(&nfc).await?;
+                        continue;
+                    }
+
+                    self.led.send(LedState::On { color: YELLOW }).await?;
 
                     let (done_tx, done_rx) = oneshot::channel();
                     self.audio_player.send(PlayerCommand::PlayBloop { done: done_tx }).await?;
