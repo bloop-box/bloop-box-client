@@ -1,3 +1,16 @@
+# [2.1.0](https://github.com/bloop-box/bloop-box-client/compare/v2.0.4...v2.1.0) (2022-12-26)
+
+
+### Bug Fixes
+
+* **controller:** inverse check for networker status being connected ([3cf3e07](https://github.com/bloop-box/bloop-box-client/commit/3cf3e0758057ba5fbdc94e766ee34745184a47e0))
+* **nfc:** ignore error on poll send result ([3614240](https://github.com/bloop-box/bloop-box-client/commit/3614240c6763d524c06d45ab2457ade2e3bfb19e))
+
+
+### Features
+
+* let service unit wait for spidev0.0 to be available ([002ba51](https://github.com/bloop-box/bloop-box-client/commit/002ba514d0211fdb894027bd3cd7c58f0b7e92f4))
+
 ## [2.0.4](https://github.com/bloop-box/bloop-box-client/compare/v2.0.3...v2.0.4) (2022-12-26)
 
 
