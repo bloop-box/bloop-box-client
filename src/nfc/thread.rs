@@ -69,8 +69,6 @@ pub fn start_nfc_listener(mut nfc_rx: mpsc::Receiver<NfcCommand>, config: NfcCon
                         sleep(Duration::from_millis(150));
                     };
 
-                    // During poll we ignore possible send errors, as the receiver might be dropped due to network
-                    // status updates.
                     let _ = responder.send(uid);
                 }
                 Read { responder } => {
@@ -78,7 +76,9 @@ pub fn start_nfc_listener(mut nfc_rx: mpsc::Receiver<NfcCommand>, config: NfcCon
 
                     match result {
                         Ok(value) => responder.send(Some(value)).unwrap(),
-                        _ => responder.send(None).unwrap(),
+                        _ => {
+                            let _ = responder.send(None);
+                        },
                     }
                 }
                 Release {
@@ -97,7 +97,7 @@ pub fn start_nfc_listener(mut nfc_rx: mpsc::Receiver<NfcCommand>, config: NfcCon
                         sleep(Duration::from_millis(150));
                     }
 
-                    responder.send(()).unwrap();
+                    let _ = responder.send(());
                 }
             }
         }
