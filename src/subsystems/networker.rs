@@ -1,5 +1,4 @@
 use std::io;
-use std::net::ToSocketAddrs;
 
 use std::pin::Pin;
 use std::sync::Arc;
@@ -12,7 +11,7 @@ use log::{debug, info};
 use thiserror;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::TcpStream;
+use tokio::net::{lookup_host, TcpStream};
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 use tokio::time;
@@ -287,8 +286,8 @@ impl Networker {
         connector: &TlsConnector,
         connection_config: &ConnectionConfig,
     ) -> Result<Option<Pin<Box<Stream>>>> {
-        let address = (connection_config.host.as_str(), connection_config.port)
-            .to_socket_addrs()?
+        let address = lookup_host((connection_config.host.as_str(), connection_config.port))
+            .await?
             .next()
             .ok_or_else(|| io::Error::from(io::ErrorKind::NotFound))?;
 
