@@ -4,8 +4,8 @@ VERSION="$1"
 
 cargo install cross cargo-deb
 sed -i '/\[package\]/,/^version = "[^"]*"$/ s/^version = "[^"]*"$/version = "'"$VERSION"'"/' Cargo.toml
-cross build --target arm-unknown-linux-gnueabihf --release
-cargo-deb -v --no-build --target arm-unknown-linux-gnueabihf --no-strip
+cross build --target arm-unknown-linux-gnueabihf --release || exit 1
+cargo-deb -v --no-build --target arm-unknown-linux-gnueabihf --no-strip || exit 1
 
 # This is workaround for https://github.com/kornelski/cargo-deb/issues/47
 # Patch the generated DEB to have ./ paths compatible with `unattended-upgrade`:
