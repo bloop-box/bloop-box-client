@@ -4,6 +4,7 @@ VERSION="$1"
 
 cargo install cross cargo-deb
 sed -i '/\[package\]/,/^version = "[^"]*"$/ s/^version = "[^"]*"$/version = "'"$VERSION"'"/' Cargo.toml
+export BUILDKIT_PROGRESS=plain
 cross build --target arm-unknown-linux-gnueabihf --release || exit 1
 cargo-deb -v --no-build --target arm-unknown-linux-gnueabihf --no-strip || exit 1
 
