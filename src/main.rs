@@ -4,13 +4,13 @@ use std::path::Path;
 
 use crate::etc_config::load_etc_config;
 use anyhow::Result;
+use clap::Parser;
 use env_logger::{Builder, Env};
+use log::warn;
 use tokio::fs;
 use tokio::sync::mpsc;
 use tokio::time::Duration;
 use tokio_graceful_shutdown::{IntoSubsystem, Toplevel};
-use clap::Parser;
-use log::warn;
 
 use crate::subsystems::audio_player::AudioPlayer;
 use crate::subsystems::config_manager::ConfigManager;
@@ -84,7 +84,8 @@ async fn main() -> Result<()> {
                 networker_status_tx,
                 config_tx.clone(),
                 args.dangerous_disable_cert_verification,
-            ).into_subsystem(),
+            )
+            .into_subsystem(),
         )
         .start(
             "Controller",

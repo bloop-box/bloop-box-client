@@ -75,7 +75,7 @@ impl Networker {
         rx: mpsc::Receiver<NetworkerCommand>,
         status_tx: mpsc::Sender<NetworkerStatus>,
         config: mpsc::Sender<ConfigCommand>,
-        disable_cert_validation: bool
+        disable_cert_validation: bool,
     ) -> Self {
         Self {
             rx,

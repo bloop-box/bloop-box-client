@@ -1,7 +1,7 @@
-use std::time::Duration;
 use anyhow::{Error, Result};
 use aw2013::{Aw2013, Current, Timing};
 use log::info;
+use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio::time::sleep;
 use tokio_graceful_shutdown::{IntoSubsystem, SubsystemHandle};
@@ -30,18 +30,11 @@ impl Led {
         Self { rx }
     }
 
-    async fn process(
-        &mut self,
-        tx: mpsc::Sender<InternalLedState>,
-    ) -> Result<()> {
+    async fn process(&mut self, tx: mpsc::Sender<InternalLedState>) -> Result<()> {
         while let Some(led_state) = self.rx.recv().await {
             match led_state {
-                LedState::On { color } => {
-                    tx.send(InternalLedState::On { color }).await?
-                },
-                LedState::Blink { color } => {
-                    tx.send(InternalLedState::Blink { color }).await?
-                }
+                LedState::On { color } => tx.send(InternalLedState::On { color }).await?,
+                LedState::Blink { color } => tx.send(InternalLedState::Blink { color }).await?,
             }
         }
 
@@ -91,11 +84,7 @@ impl InternalLed {
 
             match led_state {
                 InternalLedState::On { color } => {
-                    aw2013.set_static_rgb(
-                        [color.0 / 4, color.1 / 4, color.2 / 4],
-                        None,
-                        None,
-                    )?;
+                    aw2013.set_static_rgb([color.0 / 4, color.1 / 4, color.2 / 4], None, None)?;
                 }
                 InternalLedState::Blink { color } => {
                     aw2013.set_breathing_rgb(
