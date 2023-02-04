@@ -30,15 +30,6 @@ fn default_volume_down_button() -> u8 {
 fn default_volume_up_button() -> u8 {
     23
 }
-fn default_red_led() -> u8 {
-    16
-}
-fn default_green_led() -> u8 {
-    20
-}
-fn default_blue_led() -> u8 {
-    26
-}
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct GpioConfig {
@@ -46,12 +37,6 @@ pub struct GpioConfig {
     pub volume_down_button: u8,
     #[serde(default = "default_volume_up_button")]
     pub volume_up_button: u8,
-    #[serde(default = "default_red_led")]
-    pub red_led: u8,
-    #[serde(default = "default_green_led")]
-    pub green_led: u8,
-    #[serde(default = "default_blue_led")]
-    pub blue_led: u8,
 }
 
 #[derive(Clone, Deserialize)]

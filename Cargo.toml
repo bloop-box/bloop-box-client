@@ -34,6 +34,7 @@ hex = "0.4.3"
 linux-embedded-hal = "0.3.2"
 embedded-hal = "0.2.7"
 rodio = { version = "0.16.0", features = ["symphonia-mp3"] }
+aw2013 = "1.0.0"
 
 [profile.release]
 strip = "debuginfo"

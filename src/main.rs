@@ -58,7 +58,7 @@ async fn main() -> Result<()> {
     let (networker_status_tx, networker_status_rx) = mpsc::channel(8);
 
     Toplevel::new()
-        .start("Led", Led::new(etc_config.clone(), led_rx).into_subsystem())
+        .start("Led", Led::new(led_rx).into_subsystem())
         .start(
             "ConfigManager",
             ConfigManager::new(data_dir, config_rx).into_subsystem(),
