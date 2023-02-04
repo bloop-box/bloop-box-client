@@ -23,6 +23,7 @@ use tokio_rustls::TlsConnector;
 
 use crate::nfc::reader::Uid;
 use crate::subsystems::config_manager::{ConfigCommand, ConnectionConfig};
+use crate::utils::skip_certificate_verification::SkipCertificateVerification;
 
 pub type AchievementId = [u8; 20];
 
@@ -66,6 +67,7 @@ pub struct Networker {
     rx: mpsc::Receiver<NetworkerCommand>,
     status_tx: mpsc::Sender<NetworkerStatus>,
     config: mpsc::Sender<ConfigCommand>,
+    disable_cert_validation: bool,
 }
 
 impl Networker {
@@ -73,11 +75,13 @@ impl Networker {
         rx: mpsc::Receiver<NetworkerCommand>,
         status_tx: mpsc::Sender<NetworkerStatus>,
         config: mpsc::Sender<ConfigCommand>,
+        disable_cert_validation: bool
     ) -> Self {
         Self {
             rx,
             status_tx,
             config,
+            disable_cert_validation,
         }
     }
 
@@ -90,23 +94,7 @@ impl Networker {
             .await?;
         let mut maybe_connection_config = config_rx.await?;
 
-        let mut root_cert_store = rustls::RootCertStore::empty();
-
-        root_cert_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.0.iter().map(
-            |ta| {
-                OwnedTrustAnchor::from_subject_spki_name_constraints(
-                    ta.subject,
-                    ta.spki,
-                    ta.name_constraints,
-                )
-            },
-        ));
-
-        let client_config = ClientConfig::builder()
-            .with_safe_defaults()
-            .with_root_certificates(root_cert_store)
-            .with_no_client_auth();
-        let connector = TlsConnector::from(Arc::new(client_config));
+        let connector = self.get_tls_connector();
         let mut maybe_stream: Option<Pin<Box<Stream>>> = None;
 
         if maybe_connection_config.is_some() {
@@ -222,6 +210,35 @@ impl Networker {
         }
 
         Ok(())
+    }
+
+    fn get_tls_connector(&self) -> TlsConnector {
+        if self.disable_cert_validation {
+            let client_config = ClientConfig::builder()
+                .with_safe_defaults()
+                .with_custom_certificate_verifier(SkipCertificateVerification::new())
+                .with_no_client_auth();
+
+            return TlsConnector::from(Arc::new(client_config));
+        }
+
+        let mut root_cert_store = rustls::RootCertStore::empty();
+        root_cert_store.add_server_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.0.iter().map(
+            |ta| {
+                OwnedTrustAnchor::from_subject_spki_name_constraints(
+                    ta.subject,
+                    ta.spki,
+                    ta.name_constraints,
+                )
+            },
+        ));
+
+        let client_config = ClientConfig::builder()
+            .with_safe_defaults()
+            .with_root_certificates(root_cert_store)
+            .with_no_client_auth();
+
+        TlsConnector::from(Arc::new(client_config))
     }
 
     async fn check_uid(

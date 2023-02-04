@@ -9,6 +9,8 @@ use tokio::fs;
 use tokio::sync::mpsc;
 use tokio::time::Duration;
 use tokio_graceful_shutdown::{IntoSubsystem, Toplevel};
+use clap::Parser;
+use log::warn;
 
 use crate::subsystems::audio_player::AudioPlayer;
 use crate::subsystems::config_manager::ConfigManager;
@@ -20,11 +22,25 @@ use crate::subsystems::volume_control::VolumeControl;
 mod etc_config;
 mod nfc;
 mod subsystems;
+mod utils;
 mod wifi;
+
+#[derive(Parser)]
+struct Args {
+    /// DANGEROUS: Disable server cert verification
+    #[arg(long, default_value_t = false)]
+    dangerous_disable_cert_verification: bool,
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
     Builder::from_env(Env::default().default_filter_or("debug")).init();
+
+    let args = Args::parse();
+
+    if args.dangerous_disable_cert_verification {
+        warn!("Server certificate verification has been disabled. Make sure to not use this flag in production!");
+    }
 
     let etc_config = load_etc_config().await?;
     let share_dir = Path::new("/usr/share/bloop-box");
@@ -63,7 +79,12 @@ async fn main() -> Result<()> {
         )
         .start(
             "Networker",
-            Networker::new(networker_rx, networker_status_tx, config_tx.clone()).into_subsystem(),
+            Networker::new(
+                networker_rx,
+                networker_status_tx,
+                config_tx.clone(),
+                args.dangerous_disable_cert_verification,
+            ).into_subsystem(),
         )
         .start(
             "Controller",

@@ -11,10 +11,11 @@ Bloop box client written in Rust with Tokio.
 3. [LED status codes](#led-status-codes)
 4. [Pre-requisites](#pre-requisites)
 5. [Shared data](#shared-data)
-6. [Deployment](#deployment)
+6. [Development](#development)
+7. [Deployment](#deployment)
    1. [Automatic](#automatic)
    2. [Manual](#manual)
-7. [System Setup](#system-setup)
+8. [System Setup](#system-setup)
 
 ## NFC tag support
 
@@ -72,6 +73,18 @@ you are using our reference design for the hardware, the steps to take are docum
 
 You'll need to have a data package for the bloop box installed. For more information about this, please check the
 [Bloop Box Data Example](https://github.com/bloop-box/bloop-box-data-example)
+
+## Development
+
+If you are testing against a locally hosted server with a self-signed certificate, you have to disable certificate
+verification in order to connect to that server. You can do so through the following call:
+
+```bash
+bloop-server --dangerous-disable-cert-verification
+```
+
+Be really careful to only use this flag in development. If you use this in production, the client **will not** know if
+the server certificate is genuine and be open to man-in-the-middle attacks!
 
 ## Deployment
 
