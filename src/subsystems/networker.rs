@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use anyhow::{Error, Result};
 
-use log::{debug, info};
+use log::info;
 
 use thiserror;
 
@@ -150,7 +150,7 @@ impl Networker {
                                     match self.check_uid(stream, &uid).await {
                                         Ok(response) => responder.send(response).unwrap(),
                                         Err(error) => {
-                                            debug!("Lost connection due to: {}", error);
+                                            info!("Lost connection due to: {}", error);
                                             maybe_stream = None;
                                             self.status_tx.send(NetworkerStatus::Disconnected).await?;
                                             responder.send(CheckUidResponse::Error {}).unwrap();
@@ -169,7 +169,7 @@ impl Networker {
                                     match self.get_audio(stream, &id).await {
                                         Ok(data) => responder.send(data).unwrap(),
                                         Err(error) => {
-                                            debug!("Lost connection due to: {}", error);
+                                            info!("Lost connection due to: {}", error);
                                             maybe_stream = None;
                                             self.status_tx.send(NetworkerStatus::Disconnected).await?;
                                             responder.send(None).unwrap();
@@ -184,7 +184,8 @@ impl Networker {
                 _ = interval.tick() => {
                     match maybe_stream {
                         Some(ref mut stream) => {
-                            if self.ping(stream).await.is_err() {
+                            if let Err(error) = self.ping(stream).await {
+                                info!("Ping timeout: {}", error);
                                 maybe_stream = None;
                                 self.status_tx.send(NetworkerStatus::Disconnected).await?;
                             };

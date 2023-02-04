@@ -78,7 +78,7 @@ pub fn start_nfc_listener(mut nfc_rx: mpsc::Receiver<NfcCommand>, config: NfcCon
                         Ok(value) => responder.send(Some(value)).unwrap(),
                         _ => {
                             let _ = responder.send(None);
-                        },
+                        }
                     }
                 }
                 Release {

@@ -1,14 +1,16 @@
+use std::fs::File;
+use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::thread;
 use std::thread::sleep;
 use std::time::Duration;
 
 use crate::subsystems::config_manager::ConfigCommand;
-use anyhow::{anyhow, Context, Error, Result};
+use anyhow::{anyhow, Error, Result};
 use glob::glob;
 use log::info;
 use rand::seq::SliceRandom;
-use soloud::*;
+use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink};
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::oneshot;
@@ -37,11 +39,112 @@ pub enum PlayerCommand {
 }
 
 #[derive(Debug)]
-enum SoloudCommand {
-    PlayAsset { path: PathBuf, done: Done },
+enum InternalCommand {
     PlayFile { path: PathBuf, done: Done },
     SetVolume { volume: f32 },
     GetVolume { responder: oneshot::Sender<f32> },
+}
+
+struct PlayState {
+    _stream: OutputStream,
+    _handle: OutputStreamHandle,
+    sink: Sink,
+    done: Done,
+}
+
+struct InternalPlayer {
+    rx: mpsc::Receiver<InternalCommand>,
+    volume: f32,
+    volume_change_path: PathBuf,
+}
+
+impl InternalPlayer {
+    pub fn new(rx: mpsc::Receiver<InternalCommand>, volume_change_path: PathBuf) -> Result<Self> {
+        Ok(Self {
+            rx,
+            volume: 1.0,
+            volume_change_path,
+        })
+    }
+
+    pub fn run(mut self) -> Result<()> {
+        while let Some(command) = self.rx.blocking_recv() {
+            let play_state = self.handle_command(command, None)?;
+
+            if let Some(mut play_state) = play_state {
+                while !play_state.sink.empty() {
+                    sleep(Duration::from_millis(100));
+                    let maybe_command = self.rx.try_recv();
+
+                    match maybe_command {
+                        Ok(command) => {
+                            self.handle_command(command, Some(&mut play_state))?;
+                        }
+                        Err(TryRecvError::Empty) => {
+                            continue;
+                        }
+                        Err(TryRecvError::Disconnected) => {
+                            return Ok(());
+                        }
+                    }
+                }
+
+                let _ = play_state.done.send(());
+            }
+        }
+
+        Ok(())
+    }
+
+    fn handle_command(
+        &mut self,
+        command: InternalCommand,
+        play_state: Option<&mut PlayState>,
+    ) -> Result<Option<PlayState>> {
+        use InternalCommand::*;
+
+        match command {
+            PlayFile { path, done } => {
+                if play_state.is_some() {
+                    panic!("New playback requested while other sound is already playing");
+                }
+
+                let (stream, handle) = OutputStream::try_default()?;
+                let sink = Sink::try_new(&handle)?;
+                let file = File::open(path)?;
+                sink.set_volume(self.volume);
+                sink.append(Decoder::new(BufReader::new(file))?);
+                return Ok(Some(PlayState {
+                    _stream: stream,
+                    _handle: handle,
+                    sink,
+                    done,
+                }));
+            }
+            SetVolume { volume } => {
+                if let Some(ref play_state) = play_state {
+                    play_state.sink.set_volume(volume);
+                }
+
+                self.volume = volume;
+                let volume_change_path = self.volume_change_path.to_owned();
+
+                thread::spawn(move || {
+                    let (_stream, handle) = OutputStream::try_default().unwrap();
+                    let sink = Sink::try_new(&handle).unwrap();
+                    let file = File::open(&volume_change_path).unwrap();
+                    sink.set_volume(volume);
+                    sink.append(Decoder::new(BufReader::new(file)).unwrap());
+                    sink.sleep_until_end();
+                });
+            }
+            GetVolume { responder } => {
+                let _ = responder.send(self.volume);
+            }
+        }
+
+        Ok(None)
+    }
 }
 
 impl AudioPlayer {
@@ -62,86 +165,14 @@ impl AudioPlayer {
     }
 
     async fn process(&mut self) -> Result<()> {
-        let (soloud_tx, mut soloud_rx) = mpsc::channel(8);
+        let (internal_tx, internal_rx) = mpsc::channel(8);
         let share_path = self.share_path.to_owned();
 
         thread::spawn(move || {
-            struct PlayState {
-                handle: Handle,
-                done: Done,
-            }
-
-            let mut soloud = Soloud::default().unwrap();
-            let mut play_wav = audio::Wav::default();
-            let volume_change_path = share_path.join(Path::new("volume-change.mp3"));
-            let mut volume_change_wav = audio::Wav::default();
-            volume_change_wav.load(volume_change_path).unwrap();
-
-            let mut handle_command = |soloud: &mut Soloud, command| {
-                use SoloudCommand::*;
-
-                match command {
-                    PlayAsset { path, done } => {
-                        let path = share_path.join(path);
-                        play_wav
-                            .load(&path)
-                            .with_context(|| format!("Failed to play {}", path.display()))
-                            .unwrap();
-                        return Some(PlayState {
-                            handle: soloud.play(&play_wav),
-                            done,
-                        });
-                    }
-                    PlayFile { path, done } => {
-                        play_wav
-                            .load(&path)
-                            .with_context(|| format!("Failed to play {}", path.display()))
-                            .unwrap();
-                        return Some(PlayState {
-                            handle: soloud.play(&play_wav),
-                            done,
-                        });
-                    }
-                    SetVolume { volume } => {
-                        soloud.set_global_volume(volume);
-                        soloud.play(&volume_change_wav);
-                    }
-                    GetVolume { responder } => {
-                        let _ = responder.send(soloud.global_volume());
-                    }
-                }
-
-                None
-            };
-
-            while let Some(command) = soloud_rx.blocking_recv() {
-                let play_state = handle_command(&mut soloud, command);
-
-                if let Some(current_play_state) = play_state {
-                    while soloud.is_valid_voice_handle(current_play_state.handle) {
-                        sleep(Duration::from_millis(100));
-                        let maybe_command = soloud_rx.try_recv();
-
-                        match maybe_command {
-                            Ok(command) => {
-                                let maybe_play_state = handle_command(&mut soloud, command);
-
-                                if maybe_play_state.is_some() {
-                                    panic!("New playback requested while other sound is already playing");
-                                }
-                            }
-                            Err(TryRecvError::Empty) => {
-                                continue;
-                            }
-                            Err(TryRecvError::Disconnected) => {
-                                return;
-                            }
-                        }
-                    }
-
-                    current_play_state.done.send(()).unwrap();
-                }
-            }
+            let internal_player =
+                InternalPlayer::new(internal_rx, share_path.join(Path::new("volume-change.mp3")))
+                    .unwrap();
+            internal_player.run().unwrap();
         });
 
         let (config_tx, config_rx) = oneshot::channel();
@@ -152,8 +183,8 @@ impl AudioPlayer {
             .await?;
         let mut volume_config = config_rx.await?;
 
-        soloud_tx
-            .send(SoloudCommand::SetVolume {
+        internal_tx
+            .send(InternalCommand::SetVolume {
                 volume: volume_config.current,
             })
             .await?;
@@ -168,8 +199,11 @@ impl AudioPlayer {
                         .choose(&mut rand::thread_rng())
                         .ok_or_else(|| anyhow!("No boop files available"))?
                         .clone();
-                    soloud_tx
-                        .send(SoloudCommand::PlayAsset { path, done })
+                    internal_tx
+                        .send(InternalCommand::PlayFile {
+                            path: self.share_path.join(path),
+                            done,
+                        })
                         .await?;
                 }
                 PlayConfirm { done } => {
@@ -178,18 +212,24 @@ impl AudioPlayer {
                         .choose(&mut rand::thread_rng())
                         .ok_or_else(|| anyhow!("No confirm files available"))?
                         .clone();
-                    soloud_tx
-                        .send(SoloudCommand::PlayAsset { path, done })
+                    internal_tx
+                        .send(InternalCommand::PlayFile {
+                            path: self.share_path.join(path),
+                            done,
+                        })
                         .await?;
                 }
                 PlayAsset { path, done } => {
-                    soloud_tx
-                        .send(SoloudCommand::PlayAsset { path, done })
+                    internal_tx
+                        .send(InternalCommand::PlayFile {
+                            path: self.share_path.join(path),
+                            done,
+                        })
                         .await?;
                 }
                 PlayCached { path, done } => {
-                    soloud_tx
-                        .send(SoloudCommand::PlayFile {
+                    internal_tx
+                        .send(InternalCommand::PlayFile {
                             path: self.cache_path.join(path),
                             done,
                         })
@@ -197,8 +237,8 @@ impl AudioPlayer {
                 }
                 SetVolume { volume } => {
                     volume_config.current = volume.clamp(0., volume_config.max);
-                    soloud_tx
-                        .send(SoloudCommand::SetVolume {
+                    internal_tx
+                        .send(InternalCommand::SetVolume {
                             volume: volume_config.current,
                         })
                         .await?;
@@ -213,15 +253,15 @@ impl AudioPlayer {
                     config_rx.await?;
                 }
                 GetVolume { responder } => {
-                    soloud_tx
-                        .send(SoloudCommand::GetVolume { responder })
+                    internal_tx
+                        .send(InternalCommand::GetVolume { responder })
                         .await?;
                 }
                 SetMaxVolume { volume } => {
                     volume_config.max = volume.clamp(0., 1.);
                     volume_config.current = volume_config.max;
-                    soloud_tx
-                        .send(SoloudCommand::SetVolume {
+                    internal_tx
+                        .send(InternalCommand::SetVolume {
                             volume: volume_config.current,
                         })
                         .await?;
