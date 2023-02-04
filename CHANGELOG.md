@@ -1,3 +1,25 @@
+# [3.0.0](https://github.com/bloop-box/bloop-box-client/compare/v2.1.0...v3.0.0) (2023-02-04)
+
+
+### Bug Fixes
+
+* **audio_player:** re-open audio player each time a sound is played ([af7fd5f](https://github.com/bloop-box/bloop-box-client/commit/af7fd5f7be82afdd1ad3938b94d79faa224af94a))
+* **clippy:** use format variables in-line ([75ea445](https://github.com/bloop-box/bloop-box-client/commit/75ea4453c492c4a47f5412cc02e312d14cd4036d))
+* **networker:** use async DNS lookup ([27cc667](https://github.com/bloop-box/bloop-box-client/commit/27cc667bcf19049e2e6570516478d5a5d60bc75a))
+* **nfc:** do not crash when responder was dropped ([9f39246](https://github.com/bloop-box/bloop-box-client/commit/9f39246fd7b0ba9c84ec7c83233461dd42808faa))
+
+
+### Features
+
+* allow disabling certification verification for development ([e57e5b0](https://github.com/bloop-box/bloop-box-client/commit/e57e5b07088dc75fe81c06db89d56ad95492550e))
+* **led:** replace GPIO based LED with AW2013 ([3884921](https://github.com/bloop-box/bloop-box-client/commit/38849214e3e9566f7144bc4eff3833afc1c88ad9))
+
+
+### BREAKING CHANGES
+
+* **led:** You must use newer Bloop Box hardware with support for the
+AW2013 chipset.
+
 # [2.1.0](https://github.com/bloop-box/bloop-box-client/compare/v2.0.4...v2.1.0) (2022-12-26)
 
 
