@@ -1,4 +1,4 @@
-FROM ghcr.io/cross-rs/arm-unknown-linux-gnueabihf:latest
+FROM ghcr.io/cross-rs/arm-unknown-linux-gnueabihf:0.2.5
 
 RUN dpkg --add-architecture armhf && \
     apt-get update && \
