@@ -80,7 +80,7 @@ If you are testing against a locally hosted server with a self-signed certificat
 verification in order to connect to that server. You can do so through the following call:
 
 ```bash
-bloop-server --dangerous-disable-cert-verification
+bloop-box --dangerous-disable-cert-verification
 ```
 
 Be really careful to only use this flag in development. If you use this in production, the client **will not** know if
