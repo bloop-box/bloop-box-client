@@ -37,8 +37,6 @@ pub fn start_nfc_listener(mut nfc_rx: mpsc::Receiver<NfcCommand>, config: NfcCon
             .mode(SpiModeFlags::SPI_MODE_0)
             .build();
         spi.configure(&options).unwrap();
-        let mfrc522 = Mfrc522::new(spi).unwrap();
-        let mut nfc_reader = NfcReader::new(mfrc522);
 
         let mut reset_pin = Gpio::new()
             .unwrap()
@@ -48,6 +46,9 @@ pub fn start_nfc_listener(mut nfc_rx: mpsc::Receiver<NfcCommand>, config: NfcCon
         sleep(Duration::from_nanos(150));
         reset_pin.set_high();
         sleep(Duration::from_micros(50));
+
+        let mfrc522 = Mfrc522::new(spi).unwrap();
+        let mut nfc_reader = NfcReader::new(mfrc522);
 
         'command: while let Some(command) = nfc_rx.blocking_recv() {
             use NfcCommand::*;
