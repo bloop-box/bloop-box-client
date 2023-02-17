@@ -6,24 +6,19 @@ use std::thread::sleep;
 use std::time::Duration;
 
 use crate::subsystems::config_manager::ConfigCommand;
-use anyhow::{anyhow, Error, Result};
+
+use anyhow::{bail, Error, Result};
 use glob::glob;
+use lazy_static::lazy_static;
 use log::info;
-use rand::seq::SliceRandom;
+use rand_distr::Distribution;
+use rand_distr::WeightedAliasIndex;
+use regex::Regex;
 use rodio::{Decoder, OutputStream, OutputStreamHandle, Sink};
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::oneshot;
 use tokio_graceful_shutdown::{IntoSubsystem, SubsystemHandle};
-
-pub struct AudioPlayer {
-    share_path: PathBuf,
-    cache_path: PathBuf,
-    bloop_paths: Vec<PathBuf>,
-    confirm_paths: Vec<PathBuf>,
-    rx: mpsc::Receiver<PlayerCommand>,
-    config: mpsc::Sender<ConfigCommand>,
-}
 
 pub type Done = oneshot::Sender<()>;
 
@@ -147,6 +142,60 @@ impl InternalPlayer {
     }
 }
 
+struct AudioCollection {
+    paths: Vec<PathBuf>,
+    dist: WeightedAliasIndex<f64>,
+}
+
+impl AudioCollection {
+    pub fn from_dir(path: &Path) -> Result<AudioCollection> {
+        let mut paths: Vec<PathBuf> = Vec::new();
+
+        for entry in glob(format!("{}/*.mp3", path.to_str().unwrap()).as_str()).unwrap() {
+            paths.push(entry.unwrap().as_path().try_into()?);
+        }
+
+        if paths.is_empty() {
+            bail!("Path '{:?}' contains no mp3 files", path);
+        }
+
+        let mut weights: Vec<f64> = Vec::new();
+
+        lazy_static! {
+            static ref RE: Regex = Regex::new(r"\.\[w=(\d+(?:\.\d*)?)\]\.mp3$").unwrap();
+        }
+
+        for path in &paths {
+            let filename = path.file_name().unwrap();
+            let cap = RE.captures(filename.to_str().unwrap());
+
+            weights.push(if let Some(cap) = cap {
+                cap[1].parse::<f64>()?
+            } else {
+                100.
+            });
+        }
+
+        Ok(AudioCollection {
+            paths,
+            dist: WeightedAliasIndex::new(weights)?,
+        })
+    }
+
+    pub fn choose_random(&self) -> &PathBuf {
+        &self.paths[self.dist.sample(&mut rand::thread_rng())]
+    }
+}
+
+pub struct AudioPlayer {
+    share_path: PathBuf,
+    cache_path: PathBuf,
+    bloop_collection: AudioCollection,
+    confirm_collection: AudioCollection,
+    rx: mpsc::Receiver<PlayerCommand>,
+    config: mpsc::Sender<ConfigCommand>,
+}
+
 impl AudioPlayer {
     pub fn new(
         share_path: PathBuf,
@@ -157,8 +206,10 @@ impl AudioPlayer {
         Self {
             share_path: share_path.clone(),
             cache_path,
-            bloop_paths: Self::collect_paths(&share_path, "bloop").expect(""),
-            confirm_paths: Self::collect_paths(&share_path, "confirm").expect(""),
+            bloop_collection: AudioCollection::from_dir(&share_path.join(Path::new("bloop")))
+                .unwrap(),
+            confirm_collection: AudioCollection::from_dir(&share_path.join(Path::new("confirm")))
+                .unwrap(),
             rx,
             config,
         }
@@ -167,6 +218,8 @@ impl AudioPlayer {
     async fn process(&mut self) -> Result<()> {
         let (internal_tx, internal_rx) = mpsc::channel(8);
         let share_path = self.share_path.to_owned();
+
+        info!("selected: {:?}", self.bloop_collection.choose_random());
 
         thread::spawn(move || {
             let internal_player =
@@ -194,11 +247,7 @@ impl AudioPlayer {
 
             match play_command {
                 PlayBloop { done } => {
-                    let path = self
-                        .bloop_paths
-                        .choose(&mut rand::thread_rng())
-                        .ok_or_else(|| anyhow!("No boop files available"))?
-                        .clone();
+                    let path = self.bloop_collection.choose_random().clone();
                     internal_tx
                         .send(InternalCommand::PlayFile {
                             path: self.share_path.join(path),
@@ -207,11 +256,7 @@ impl AudioPlayer {
                         .await?;
                 }
                 PlayConfirm { done } => {
-                    let path = self
-                        .confirm_paths
-                        .choose(&mut rand::thread_rng())
-                        .ok_or_else(|| anyhow!("No confirm files available"))?
-                        .clone();
+                    let path = self.confirm_collection.choose_random().clone();
                     internal_tx
                         .send(InternalCommand::PlayFile {
                             path: self.share_path.join(path),
@@ -279,18 +324,6 @@ impl AudioPlayer {
         }
 
         Ok(())
-    }
-
-    fn collect_paths(share_path: &Path, dir_name: &str) -> Result<Vec<PathBuf>> {
-        let mut paths: Vec<PathBuf> = Vec::new();
-
-        for entry in
-            glob(format!("{}/{}/*.mp3", share_path.to_str().unwrap(), dir_name).as_str()).unwrap()
-        {
-            paths.push(entry.unwrap().as_path().try_into()?);
-        }
-
-        Ok(paths)
     }
 }
 
