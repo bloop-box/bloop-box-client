@@ -1,3 +1,16 @@
+# [3.2.0](https://github.com/bloop-box/bloop-box-client/compare/v3.1.0...v3.2.0) (2023-02-18)
+
+
+### Bug Fixes
+
+* **AudioPlayer:** remove testing message ([2607e47](https://github.com/bloop-box/bloop-box-client/commit/2607e47ee6ac3c2ef79fff397100ea896a95fbec))
+* **debian:** suppress all info messages from third party libs ([ab63a9a](https://github.com/bloop-box/bloop-box-client/commit/ab63a9af057a51850425e71047ea9a15ac624f89))
+
+
+### Features
+
+* shut down all background tasks on shutdown ([e16c7b4](https://github.com/bloop-box/bloop-box-client/commit/e16c7b4c8d66c7fa64533fa46f3bb8cabce1946f))
+
 # [3.1.0](https://github.com/bloop-box/bloop-box-client/compare/v3.0.0...v3.1.0) (2023-02-18)
 
 
