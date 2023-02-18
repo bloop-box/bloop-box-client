@@ -149,7 +149,7 @@ After=network.target
 Type=simple
 User=bloop-box
 ExecStart=/usr/bin/bloop-box
-Environment="RUST_LOG=info"
+Environment="RUST_LOG=error,bloop_box=info"
 Restart=always
 
 [Install]
