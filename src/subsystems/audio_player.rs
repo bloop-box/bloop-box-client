@@ -219,8 +219,6 @@ impl AudioPlayer {
         let (internal_tx, internal_rx) = mpsc::channel(8);
         let share_path = self.share_path.to_owned();
 
-        info!("selected: {:?}", self.bloop_collection.choose_random());
-
         thread::spawn(move || {
             let internal_player =
                 InternalPlayer::new(internal_rx, share_path.join(Path::new("volume-change.mp3")))
