@@ -116,7 +116,7 @@ Apart from the shared data, you'll need to set up the bloop-box user and its lib
 adduser --system --home /nonexistent --gecos "bloop-box" \
         --no-create-home --disabled-password \
         --quiet bloop-box
-usermod -a -G gpio,spi,audio,netdev bloop-box
+usermod -a -G gpio,spi,i2c,audio,netdev bloop-box
 mkdir -p /var/lib/bloop-box
 chown bloop-box:nogroup /var/lib/bloop-box
 ```
