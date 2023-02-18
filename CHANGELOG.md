@@ -1,3 +1,15 @@
+# [3.1.0](https://github.com/bloop-box/bloop-box-client/compare/v3.0.0...v3.1.0) (2023-02-18)
+
+
+### Bug Fixes
+
+* **nfc:** initialize mfrc522 after reset ([20a8e90](https://github.com/bloop-box/bloop-box-client/commit/20a8e90325d282c5ec461dfd86cd014a7dca075e))
+
+
+### Features
+
+* **AudioPlayer:** allow weighted random selection ([de4190a](https://github.com/bloop-box/bloop-box-client/commit/de4190a841159c84ec090a330c5af8337e5e79b6))
+
 # [3.0.0](https://github.com/bloop-box/bloop-box-client/compare/v2.1.0...v3.0.0) (2023-02-04)
 
 
