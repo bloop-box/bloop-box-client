@@ -1,10 +1,12 @@
 use std::io;
+use std::net::IpAddr;
 
 use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{Error, Result};
+use local_ip_address::linux::local_ip;
 
 use log::info;
 
@@ -25,7 +27,7 @@ use crate::nfc::reader::Uid;
 use crate::subsystems::config_manager::{ConfigCommand, ConnectionConfig};
 use crate::utils::skip_certificate_verification::SkipCertificateVerification;
 
-pub type AchievementId = [u8; 20];
+pub type AchievementId = [u8; 16];
 
 #[derive(thiserror::Error, Debug)]
 #[error("Invalid credentials")]
@@ -68,6 +70,7 @@ pub struct Networker {
     status_tx: mpsc::Sender<NetworkerStatus>,
     config: mpsc::Sender<ConfigCommand>,
     disable_cert_validation: bool,
+    maybe_stream: Option<Pin<Box<Stream>>>,
 }
 
 impl Networker {
@@ -82,6 +85,7 @@ impl Networker {
             status_tx,
             config,
             disable_cert_validation,
+            maybe_stream: None,
         }
     }
 
@@ -95,7 +99,6 @@ impl Networker {
         let mut maybe_connection_config = config_rx.await?;
 
         let connector = self.get_tls_connector();
-        let mut maybe_stream: Option<Pin<Box<Stream>>> = None;
 
         if maybe_connection_config.is_some() {
             self.status_tx.send(NetworkerStatus::Disconnected).await?;
@@ -116,7 +119,7 @@ impl Networker {
                             match command {
                                 SetConnection { connection_config } => {
                                     maybe_connection_config = Some(connection_config.clone());
-                                    maybe_stream = None;
+                                    self.maybe_stream = None;
                                     invalid_credentials = false;
 
                                     let (config_tx, config_rx) = oneshot::channel();
@@ -127,38 +130,32 @@ impl Networker {
                                     config_rx.await?;
                                 },
                                 CheckUid { uid, responder } => {
-                                    let stream = match maybe_stream {
-                                        Some(ref mut stream) => stream,
-                                        None => {
-                                            responder.send(CheckUidResponse::Error {}).unwrap();
-                                            continue;
-                                        },
-                                    };
+                                    if self.maybe_stream.is_none() {
+                                        responder.send(CheckUidResponse::Error {}).unwrap();
+                                        continue;
+                                    }
 
-                                    match self.check_uid(stream, &uid).await {
+                                    match self.check_uid(&uid).await {
                                         Ok(response) => responder.send(response).unwrap(),
                                         Err(error) => {
                                             info!("Lost connection due to: {}", error);
-                                            maybe_stream = None;
+                                            self.maybe_stream = None;
                                             self.status_tx.send(NetworkerStatus::Disconnected).await?;
                                             responder.send(CheckUidResponse::Error {}).unwrap();
                                         },
                                     }
                                 },
                                 GetAudio { id, responder } => {
-                                    let stream = match maybe_stream {
-                                        Some(ref mut stream) => stream,
-                                        None => {
-                                            responder.send(None).unwrap();
-                                            continue;
-                                        },
-                                    };
+                                    if self.maybe_stream.is_none() {
+                                        responder.send(None).unwrap();
+                                        continue;
+                                    }
 
-                                    match self.get_audio(stream, &id).await {
+                                    match self.get_audio(&id).await {
                                         Ok(data) => responder.send(data).unwrap(),
                                         Err(error) => {
                                             info!("Lost connection due to: {}", error);
-                                            maybe_stream = None;
+                                            self.maybe_stream = None;
                                             self.status_tx.send(NetworkerStatus::Disconnected).await?;
                                             responder.send(None).unwrap();
                                         },
@@ -170,40 +167,39 @@ impl Networker {
                     }
                 },
                 _ = interval.tick() => {
-                    match maybe_stream {
-                        Some(ref mut stream) => {
-                            if let Err(error) = self.ping(stream).await {
-                                info!("Ping timeout: {}", error);
-                                maybe_stream = None;
-                                self.status_tx.send(NetworkerStatus::Disconnected).await?;
-                            };
-                        },
-                        None => {
-                            if let Some(connection_config) = maybe_connection_config.as_ref() {
-                                if invalid_credentials {
-                                    continue;
-                                }
+                    if self.maybe_stream.is_some() {
+                        if let Err(error) = self.ping().await {
+                            info!("Ping timeout: {}", error);
+                            self.maybe_stream = None;
+                            self.status_tx.send(NetworkerStatus::Disconnected).await?;
+                        };
 
-                                self.status_tx.send(NetworkerStatus::Disconnected).await?;
+                        continue;
+                    }
 
-                                if let Ok(maybe_connected_stream) = self.connect(
-                                    &connector,
-                                    connection_config
-                                ).await {
-                                    match maybe_connected_stream {
-                                        Some(connected_stream) => {
-                                            maybe_stream = Some(connected_stream);
-                                            self.status_tx.send(NetworkerStatus::Connected).await?;
-                                            invalid_credentials = false;
-                                        },
-                                        None => {
-                                            self.status_tx.send(NetworkerStatus::InvalidCredentials).await?;
-                                            invalid_credentials = true;
-                                        },
-                                    }
-                                }
+                    if let Some(connection_config) = maybe_connection_config.as_ref() {
+                        if invalid_credentials {
+                            continue;
+                        }
+
+                        self.status_tx.send(NetworkerStatus::Disconnected).await?;
+
+                        if let Ok(maybe_connected_stream) = self.connect(
+                            &connector,
+                            connection_config
+                        ).await {
+                            match maybe_connected_stream {
+                                Some(connected_stream) => {
+                                    self.maybe_stream = Some(connected_stream);
+                                    self.status_tx.send(NetworkerStatus::Connected).await?;
+                                    invalid_credentials = false;
+                                },
+                                None => {
+                                    self.status_tx.send(NetworkerStatus::InvalidCredentials).await?;
+                                    invalid_credentials = true;
+                                },
                             }
-                        },
+                        }
                     }
                 },
             }
@@ -242,10 +238,11 @@ impl Networker {
     }
 
     async fn check_uid(
-        &self,
-        stream: &mut Pin<Box<Stream>>,
+        &mut self,
         uid: &Uid,
     ) -> Result<CheckUidResponse> {
+        let stream = self.maybe_stream.as_mut().unwrap();
+
         stream.write_u8(0x00).await?;
         stream.write_all(uid).await?;
 
@@ -263,7 +260,7 @@ impl Networker {
         let mut achievements = Vec::with_capacity(achievements_count as usize);
 
         for _ in 0..achievements_count {
-            let mut achievement_id = [0; 20];
+            let mut achievement_id = [0; 16];
             stream.read_exact(&mut achievement_id).await?;
             achievements.push(achievement_id);
         }
@@ -272,10 +269,11 @@ impl Networker {
     }
 
     async fn get_audio(
-        &self,
-        stream: &mut Pin<Box<Stream>>,
+        &mut self,
         id: &AchievementId,
     ) -> Result<Option<Vec<u8>>> {
+        let stream = self.maybe_stream.as_mut().unwrap();
+
         stream.write_u8(0x01).await?;
         stream.write_all(id).await?;
 
@@ -292,7 +290,9 @@ impl Networker {
         Ok(Some(data))
     }
 
-    async fn ping(&self, stream: &mut Pin<Box<Stream>>) -> Result<()> {
+    async fn ping(&mut self) -> Result<()> {
+        let stream = self.maybe_stream.as_mut().unwrap();
+
         stream.write_u8(0x02).await?;
         stream.read_u8().await?;
 
@@ -335,9 +335,19 @@ impl Networker {
         stream: &mut Pin<Box<Stream>>,
         connection_config: &ConnectionConfig,
     ) -> Result<bool> {
-        let auth_string = format!("{}:{}", connection_config.user, connection_config.secret);
-        stream.write_u8(auth_string.len() as u8).await?;
-        stream.write_all(auth_string.as_bytes()).await?;
+        stream.write_u8(connection_config.user.len() as u8).await?;
+        stream.write_all(connection_config.user.as_bytes()).await?;
+
+        stream.write_u8(connection_config.secret.len() as u8).await?;
+        stream.write_all(connection_config.secret.as_bytes()).await?;
+
+        let local_ip = local_ip()?;
+        stream.write_u8(if local_ip.is_ipv4() { 4 } else { 6 }).await?;
+
+        match local_ip {
+            IpAddr::V4(address) => stream.write_all(&address.octets()).await?,
+            IpAddr::V6(address) => stream.write_all(&address.octets()).await?,
+        }
 
         Ok(stream.read_u8().await? == 0x01)
     }
@@ -351,6 +361,10 @@ impl IntoSubsystem<Error> for Networker {
                 info!("Networker shutting down");
             },
             res = self.process() => res?,
+        }
+
+        if let Some(stream) = self.maybe_stream.take().as_mut() {
+            stream.write_u8(3).await?;
         }
 
         Ok(())

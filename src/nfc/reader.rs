@@ -53,7 +53,7 @@ where
 
         match self.mfrc522.wupa() {
             Ok(_) => false,
-            Err(e) => !matches!(e, mfrc522::Error::Collision),
+            Err(e) => !matches!(e, mfrc522::error::Error::Collision),
         }
     }
 
