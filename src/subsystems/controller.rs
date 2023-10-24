@@ -18,7 +18,7 @@ use crate::subsystems::audio_player::PlayerCommand;
 use crate::subsystems::config_manager::{ConfigCommand, ConnectionConfig};
 use crate::subsystems::led::{LedState, BLUE, CYAN, GREEN, MAGENTA, RED, YELLOW};
 use crate::subsystems::networker::{CheckUidResponse, NetworkerCommand, NetworkerStatus};
-use crate::wifi::wpa_supplicant::set_wifi;
+use crate::wifi::nw::set_wifi;
 
 pub struct Controller {
     etc_config: EtcConfig,
@@ -85,10 +85,17 @@ impl Controller {
                     if config_uids.contains(&uid) {
                         self.led.send(LedState::On { color: YELLOW }).await?;
 
-                        if self.process_config_command(uid, &mut config_uids, nfc.clone()).await.is_ok() {
-                            self.led.send(LedState::On { color: CYAN }).await?;
-                        } else {
-                            self.led.send(LedState::On { color: RED }).await?;
+                        match self.process_config_command(uid, &mut config_uids, nfc.clone()).await {
+                            Ok(shutdown) => {
+                                if shutdown {
+                                    return Ok(());
+                                }
+
+                                self.led.send(LedState::On { color: CYAN }).await?;
+                            },
+                            Err(_) => {
+                                self.led.send(LedState::On { color: RED }).await?;
+                            },
                         }
 
                         sleep(Duration::from_millis(500)).await;
@@ -199,7 +206,7 @@ impl Controller {
         uid: Uid,
         config_uids: &mut Vec<Uid>,
         nfc: mpsc::Sender<NfcCommand>,
-    ) -> Result<()> {
+    ) -> Result<bool> {
         let (value_tx, value_rx) = oneshot::channel();
         nfc.send(NfcCommand::Read {
             responder: value_tx,
@@ -269,13 +276,15 @@ impl Controller {
                     .args(["shutdown", "now"])
                     .output()
                     .expect("Failed to shut down system");
+
+                return Ok(true);
             }
             _ => {
                 return Err(anyhow!("Value too short"));
             }
         }
 
-        Ok(())
+        Ok(false)
     }
 
     async fn wait_for_release(&self, nfc: &mpsc::Sender<NfcCommand>) -> Result<()> {

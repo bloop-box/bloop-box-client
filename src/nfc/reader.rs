@@ -1,23 +1,17 @@
 use anyhow::{anyhow, Result};
-use embedded_hal as hal;
-use hal::blocking::spi;
-use hal::digital::v2::OutputPin;
-use mfrc522::Mfrc522;
+use mfrc522::comm::Interface;
+use mfrc522::{Initialized, Mfrc522};
 
 use crate::nfc::ndef::{parse_ndef_text_record, NdefMessageParser};
 
 pub type Uid = [u8; 7];
 
-pub struct NfcReader<SPI, NSS> {
-    mfrc522: Mfrc522<SPI, NSS>,
+pub struct NfcReader<COMM: Interface> {
+    mfrc522: Mfrc522<COMM, Initialized>,
 }
 
-impl<E, SPI, NSS> NfcReader<SPI, NSS>
-where
-    SPI: spi::Transfer<u8, Error = E> + spi::Write<u8, Error = E>,
-    NSS: OutputPin,
-{
-    pub fn new(mfrc522: Mfrc522<SPI, NSS>) -> Self {
+impl<E, COMM: Interface<Error = E>> NfcReader<COMM> {
+    pub fn new(mfrc522: Mfrc522<COMM, Initialized>) -> Self {
         Self { mfrc522 }
     }
 

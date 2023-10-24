@@ -8,6 +8,7 @@ use rppal::gpio::Gpio;
 use std::thread;
 use std::thread::sleep;
 use std::time::Duration;
+use mfrc522::comm::eh02::spi::SpiInterface;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 use tokio::sync::oneshot::error::TryRecvError;
@@ -47,7 +48,8 @@ pub fn start_nfc_listener(mut nfc_rx: mpsc::Receiver<NfcCommand>, config: NfcCon
         reset_pin.set_high();
         sleep(Duration::from_micros(50));
 
-        let mfrc522 = Mfrc522::new(spi).unwrap();
+        let interface = SpiInterface::new(spi);
+        let mfrc522 = Mfrc522::new(interface).init().unwrap();
         let mut nfc_reader = NfcReader::new(mfrc522);
 
         'command: while let Some(command) = nfc_rx.blocking_recv() {

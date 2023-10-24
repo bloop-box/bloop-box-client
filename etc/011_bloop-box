@@ -1,1 +1,2 @@
 bloop-box ALL=(ALL) NOPASSWD:/usr/sbin/shutdown
+bloop-box ALL=(ALL) NOPASSWD:/usr/bin/nmcli
