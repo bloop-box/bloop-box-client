@@ -53,7 +53,7 @@ Bloop Box client for sending bloops to a server.\
 section = "games"
 priority = "optional"
 assets = [
-    ["target/arm-unknown-linux-gnueabihf/release/bloop-box", "usr/bin/", "755"],
+    ["target/bloop-box", "usr/bin/", "755"],
     ["README.md", "usr/share/doc/bloop-box/", "644"],
     ["etc/bloop-box.conf", "etc/", "644"],
     ["etc/011_bloop-box", "etc/sudoers.d/", "440"],
