@@ -1,3 +1,24 @@
+# [4.0.0](https://github.com/bloop-box/bloop-box-client/compare/v3.2.0...v4.0.0) (2023-10-25)
+
+
+### Bug Fixes
+
+* **wifi:** use correct command to set credentials ([875f28f](https://github.com/bloop-box/bloop-box-client/commit/875f28ff5a373114a48e860416c19c09c5fa0bff))
+
+
+### Features
+
+* **controller:** change busy color to magenta to adjust for color blindness ([dc58e59](https://github.com/bloop-box/bloop-box-client/commit/dc58e59f36058b53bf9ebdaa0bc4277b48eaf9a4))
+* implement bloop version 2 protocol ([5147b2f](https://github.com/bloop-box/bloop-box-client/commit/5147b2fb1f2d7efcdc9a7c8bc2bd489eeac4f73b))
+* replace wpactl with nmcli ([b014ac7](https://github.com/bloop-box/bloop-box-client/commit/b014ac7639d4e23cd6d7b661fe93dc18b3082f94))
+
+
+### BREAKING CHANGES
+
+* This will require Raspbian Bookworm or newer.
+* This will require a server implementing the bloop version 2
+protocol.
+
 # [3.2.0](https://github.com/bloop-box/bloop-box-client/compare/v3.1.0...v3.2.0) (2023-02-18)
 
 

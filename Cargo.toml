@@ -1,7 +1,7 @@
 [package]
 name = "bloop-box"
 description = "Bloop Box Client"
-version = "3.2.0"
+version = "4.0.0"
 authors = ["Ben Scholzen (DASPRiD) <mail@dasprids.de>"]
 edition = "2021"
 readme = "README.md"
