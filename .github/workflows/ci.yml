@@ -76,6 +76,7 @@ jobs:
   build-armhf:
     needs: [test-for-release]
     if: needs.test-for-release.outputs.new_release_published == 'true'
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
@@ -100,6 +101,7 @@ jobs:
   build-arm64:
     needs: [test-for-release]
     if: needs.test-for-release.outputs.new_release_published == 'true'
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
