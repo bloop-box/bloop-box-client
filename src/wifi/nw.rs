@@ -4,7 +4,8 @@ use anyhow::Result;
 pub fn set_wifi(ssid: String, password: String) -> Result<()> {
     Command::new("sudo")
         .args([
-            &"nwcli",
+            &"nmcli",
+            &"dev",
             &"wifi",
             &"connect",
             ssid.as_str(),
