@@ -94,6 +94,11 @@ You can find pre-compiled `.deb` files in the
 [release section](https://github.com/bloop-box/bloop-box-client/releases). These will automatically set everything
 up for you.
 
+The deb files come pre-compiled for two different architectures:
+
+- `armhf`: Build for Raspberry Zero W running on 32 bit Raspian
+- `arm64`: Build for Raspberry Zero 2 W running on 64 bit Raspbian
+
 ### Manual
 
 #### Cross compilation
@@ -102,6 +107,12 @@ In order to compile Bloop Box for the Raspberry Zero W, run the following comman
 
 ```bash
 cross build --target arm-unknown-linux-gnueabihf
+```
+
+Alternatively you can compile for the Raspberry Zero 2 W:
+
+```bash
+cross build --target aarch64-unknown-linux-gnu
 ```
 
 This will generate a debug build. In order to create a release build, add `--release` to the command.
@@ -123,11 +134,12 @@ chown bloop-box:nogroup /var/lib/bloop-box
 
 On a development system, you might want to give the bloop-box user a login shell and a home directory.
 
-#### Allow bloop-box user to shut down system
+#### Allow bloop-box user to call system commands
 
-The bloop box client has the capability to shut down the system when it receives the right config command. In order to
-do so it needs sudo privilege to call the `shutdown` binary. You can accomplish this by copying the
-`011_bloop-box-shutdown` file from the `etc` directory to `/etc/sudoers.d` and change its permissions ot `440`.
+The bloop box client has the capability to shut down the system and set wifi credentials when it receives the right
+config command. In order to do so it needs sudo privilege to call the `shutdown` and `nmcli` binary. You can accomplish
+this by copying the `011_bloop-box` file from the `etc` directory to `/etc/sudoers.d` and change its permissions to
+`440`.
 
 #### Hardware config
 
@@ -165,34 +177,22 @@ sudo systemctl start bloop-box
 
 ## System setup
 
-- Flash an SD card with the latest Raspian Lite image.
-- Create an empty file `/boot/ssh`.
-
-Create a file `/boot/wpa_supplicant.conf` with the following contents and adjust SSID and PSK:
-
-```
-country=DE
-ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
-update_config=1
-
-network={
-    ssid="NETWORK-NAME"
-    psk="NETWORK-PASSWORD"
-}
-```
-
-Then insert the SD card into the Bloop Box and boot it up. After that, connect to it via SSH (pi:raspberry). The first
-thing you should do is to add your public key to `./.ssh/authorized_keys`. Then you should disable password
-authentication for security reasons.
-
-To do so, edit `/etc/ssh/sshd_config`, uncomment `PasswordAuthentication` and set the value to `no`. Then you can
-reload the SSH daemon: `sudo systemctl reload sshd`.
+First flash an SD card with the Raspian (Bookworm) Lite image using the official imager. This will allow you to set up 
+Wi-Fi credentials and configure your public key. You should completely disable password authentication.
 
 Then install the audio driver according to these instructions:
 https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp/raspberry-pi-usage
 
-Next you need to enable SPI for the MFRC522 NFC reader:
+Next you need to enable SPI and I2C for the MFRC522 NFC reader and the status LED:
 
 ```bash
 sudo raspi-config nonint do_spi 0
+sudo raspi-config nonint do_i2c 0
+```
+
+Lastly you should configure one of the power board LEDs to act as an activity LED for the system. This allows you to see
+when a box has fully shut down before you unplug it. To do so, add the following line at the end of `/boot/config.txt`:
+
+```
+dtparam=act_led_gpio=27,act_led_activelow=off
 ```
