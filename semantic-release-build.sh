@@ -2,7 +2,8 @@
 
 VERSION="$1"
 
-cargo install cross cargo-deb
+cargo install cross --git https://github.com/cross-rs/cross
+cargo install cargo-deb
 sed -i '/\[package\]/,/^version = "[^"]*"$/ s/^version = "[^"]*"$/version = "'"$VERSION"'"/' Cargo.toml
 
 build_deb () {
