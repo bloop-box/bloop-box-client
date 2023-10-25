@@ -8,7 +8,7 @@ sed -i '/\[package\]/,/^version = "[^"]*"$/ s/^version = "[^"]*"$/version = "'"$
 build_deb () {
   target="$1"
 
-  cross build --target "$taget" --release || exit 1
+  cross build --target "$target" --release || exit 1
   cp -a "target/$target/release/bloop-box" target/bloop-box || exit 1
   cargo-deb -v --no-build --target "$target" --no-strip || exit 1
 
@@ -26,6 +26,7 @@ build_deb () {
     EXTRA_TAR_ARGS=J
   fi
 
+  rm -rf tar-hack
   mkdir tar-hack
   tar -C tar-hack -xf "${DATA_ARCHIVE}"
   pushd tar-hack || exit 1

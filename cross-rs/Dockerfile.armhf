@@ -1,6 +1,8 @@
-FROM ghcr.io/cross-rs/arm-unknown-linux-gnueabihf:0.2.5
+ARG CROSS_BASE_IMAGE
+FROM $CROSS_BASE_IMAGE
 
-RUN dpkg --add-architecture armhf && \
+RUN  rm /etc/apt/preferences.d/all-packages && \
+    dpkg --add-architecture armhf && \
     apt-get update && \
     apt-get install --assume-yes libasound2-dev:armhf
 
