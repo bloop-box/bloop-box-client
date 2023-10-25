@@ -1,5 +1,5 @@
-use std::process::Command;
 use anyhow::Result;
+use std::process::Command;
 
 pub fn set_wifi(ssid: String, password: String) -> Result<()> {
     Command::new("sudo")

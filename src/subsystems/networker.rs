@@ -219,15 +219,13 @@ impl Networker {
         }
 
         let mut root_cert_store = rustls::RootCertStore::empty();
-        root_cert_store.add_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(
-            |ta| {
-                OwnedTrustAnchor::from_subject_spki_name_constraints(
-                    ta.subject,
-                    ta.spki,
-                    ta.name_constraints,
-                )
-            },
-        ));
+        root_cert_store.add_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
+            OwnedTrustAnchor::from_subject_spki_name_constraints(
+                ta.subject,
+                ta.spki,
+                ta.name_constraints,
+            )
+        }));
 
         let client_config = ClientConfig::builder()
             .with_safe_defaults()
@@ -237,10 +235,7 @@ impl Networker {
         TlsConnector::from(Arc::new(client_config))
     }
 
-    async fn check_uid(
-        &mut self,
-        uid: &Uid,
-    ) -> Result<CheckUidResponse> {
+    async fn check_uid(&mut self, uid: &Uid) -> Result<CheckUidResponse> {
         let stream = self.maybe_stream.as_mut().unwrap();
 
         stream.write_u8(0x00).await?;
@@ -268,10 +263,7 @@ impl Networker {
         Ok(CheckUidResponse::Ok { achievements })
     }
 
-    async fn get_audio(
-        &mut self,
-        id: &AchievementId,
-    ) -> Result<Option<Vec<u8>>> {
+    async fn get_audio(&mut self, id: &AchievementId) -> Result<Option<Vec<u8>>> {
         let stream = self.maybe_stream.as_mut().unwrap();
 
         stream.write_u8(0x01).await?;
@@ -338,11 +330,17 @@ impl Networker {
         stream.write_u8(connection_config.user.len() as u8).await?;
         stream.write_all(connection_config.user.as_bytes()).await?;
 
-        stream.write_u8(connection_config.secret.len() as u8).await?;
-        stream.write_all(connection_config.secret.as_bytes()).await?;
+        stream
+            .write_u8(connection_config.secret.len() as u8)
+            .await?;
+        stream
+            .write_all(connection_config.secret.as_bytes())
+            .await?;
 
         let local_ip = local_ip()?;
-        stream.write_u8(if local_ip.is_ipv4() { 4 } else { 6 }).await?;
+        stream
+            .write_u8(if local_ip.is_ipv4() { 4 } else { 6 })
+            .await?;
 
         match local_ip {
             IpAddr::V4(address) => stream.write_all(&address.octets()).await?,
