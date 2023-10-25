@@ -43,11 +43,39 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo clippy -- -D warnings
 
-  release:
+  test-for-release:
     needs: [check, fmt, clippy]
-    name: Semantic Release
+    name: Test for Release
     runs-on: ubuntu-latest
     if: github.actor != 'sbosnick-bot'
+
+    outputs:
+      new_release_published: ${{ steps.semantic.outputs.new_release_published }}
+      new_release_version: ${{ steps.semantic.outputs.new_release_version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Semantic Release
+        uses: cycjimmy/semantic-release-action@v4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        id: semantic
+        with:
+          dry_run: true
+
+      - name: Update version
+        if: steps.semantic.outputs.new_release_published == 'true'
+        run: |
+          sed -i '/\[package\]/,/^version = "[^"]*"$/ s/^version = "[^"]*"$/version = "'"${{ steps.semantic.outputs.new_release_version }}"'"/' Cargo.toml
+
+  build-armhf:
+    needs: [test-for-release]
+    if: needs.test-for-release.outputs.new_release_published == 'true'
 
     steps:
       - name: Checkout
@@ -59,14 +87,70 @@ jobs:
       - name: Install Rust Stable
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Build
+        run: |
+          ./build-deb.sh ${{ needs.test-for-release.outputs.new_release_version }} arm-unknown-linux-gnueabihf
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: deb-armhf
+          path: target/arm-unknown-linux-gnueabihf/debian/bloop-box_3.2.0_armhf.deb
+
+  build-arm64:
+    needs: [test-for-release]
+    if: needs.test-for-release.outputs.new_release_published == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install Rust Stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build
+        run: |
+          ./build-deb.sh ${{ needs.test-for-release.outputs.new_release_version }} aarch64-unknown-linux-gnu
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: deb-arm64
+          path: target/aarch64-unknown-linux-gnu/debian/bloop-box_3.2.0_arm64.deb
+
+  release:
+    needs: [build-armhf, build-arm64]
+    name: Semantic Release
+    runs-on: ubuntu-latest
+    if: needs.test-for-release.outputs.new_release_published == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Install Rust Stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Update version
+        run: |
+          sed -i '/\[package\]/,/^version = "[^"]*"$/ s/^version = "[^"]*"$/version = "'"${{ steps.semantic.outputs.new_release_version }}"'"/' Cargo.toml
+          cargo update --package bloop-box --offline
+
       - name: Semantic Release
-        uses: cycjimmy/semantic-release-action@v3
+        uses: cycjimmy/semantic-release-action@v4
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         id: semantic
         with:
-          semantic_version: 19.0.5
           extra_plugins: |
             @semantic-release/changelog@6.0
-            @semantic-release/exec@6.0
             @semantic-release/git@10.0

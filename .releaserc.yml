@@ -5,12 +5,9 @@ plugins:
   - '@semantic-release/commit-analyzer'
   - '@semantic-release/release-notes-generator'
   - '@semantic-release/changelog'
-  - - '@semantic-release/exec'
-    - prepareCmd: "./semantic-release-build.sh ${nextRelease.version}"
   - - '@semantic-release/github'
     - assets:
-      - target/arm-unknown-linux-gnueabihf/debian/*.deb
-      - target/aarch64-unknown-linux-gnu/debian/*.deb
+      - deb-*/*.deb
   - - '@semantic-release/git'
     - assets:
       - CHANGELOG.md
