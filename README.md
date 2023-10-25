@@ -52,7 +52,7 @@ static light, otherwise a blinking one.
 ### Static
 
 - Green: Ready to read attendee tags
-- Yellow: Processing tag
+- Magenta: Processing tag
 - Cyan: Config tag accepted
 - Red: Config tag denied (malformed data)
 

@@ -83,7 +83,7 @@ impl Controller {
                     let uid = result?;
 
                     if config_uids.contains(&uid) {
-                        self.led.send(LedState::On { color: YELLOW }).await?;
+                        self.led.send(LedState::On { color: MAGENTA }).await?;
 
                         match self.process_config_command(uid, &mut config_uids, nfc.clone()).await {
                             Ok(shutdown) => {
@@ -108,7 +108,7 @@ impl Controller {
                         continue;
                     }
 
-                    self.led.send(LedState::On { color: YELLOW }).await?;
+                    self.led.send(LedState::On { color: MAGENTA }).await?;
 
                     let (done_tx, done_rx) = oneshot::channel();
                     self.audio_player.send(PlayerCommand::PlayBloop { done: done_tx }).await?;
