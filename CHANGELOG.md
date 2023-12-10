@@ -1,3 +1,10 @@
+## [4.0.1](https://github.com/bloop-box/bloop-box-client/compare/v4.0.0...v4.0.1) (2023-12-10)
+
+
+### Bug Fixes
+
+* **deps:** bump rppal to v0.16.0 ([d43f84e](https://github.com/bloop-box/bloop-box-client/commit/d43f84e66e11ab4309f155d689620f9ee6da87c6))
+
 # [4.0.0](https://github.com/bloop-box/bloop-box-client/compare/v3.2.0...v4.0.0) (2023-10-25)
 
 

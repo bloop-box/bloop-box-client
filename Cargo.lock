@@ -204,7 +204,7 @@ checksum = "327762f6e5a765692301e5bb513e0d9fef63be86bbc14528052b1cd3e6f03e07"
 
 [[package]]
 name = "bloop-box"
-version = "4.0.0"
+version = "4.0.1"
 dependencies = [
  "anyhow",
  "async-trait",
