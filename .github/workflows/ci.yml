@@ -124,7 +124,7 @@ jobs:
           path: target/aarch64-unknown-linux-gnu/debian/bloop-box_*_arm64.deb
 
   release:
-    needs: [build-armhf, build-arm64]
+    needs: [test-for-release, build-armhf, build-arm64]
     name: Semantic Release
     runs-on: ubuntu-latest
     if: needs.test-for-release.outputs.new_release_published == 'true'
