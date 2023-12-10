@@ -145,7 +145,7 @@ jobs:
       - name: Update version
         run: |
           sed -i '/\[package\]/,/^version = "[^"]*"$/ s/^version = "[^"]*"$/version = "'"${{ needs.test-for-release.outputs.new_release_version }}"'"/' Cargo.toml
-          cargo update --package bloop-box --offline
+          cargo update --package bloop-box
 
       - name: Semantic Release
         uses: cycjimmy/semantic-release-action@v4
