@@ -96,7 +96,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: deb-armhf
-          path: target/arm-unknown-linux-gnueabihf/debian/bloop-box_3.2.0_armhf.deb
+          path: target/arm-unknown-linux-gnueabihf/debian/bloop-box_*_armhf.deb
 
   build-arm64:
     needs: [test-for-release]
@@ -121,7 +121,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: deb-arm64
-          path: target/aarch64-unknown-linux-gnu/debian/bloop-box_3.2.0_arm64.deb
+          path: target/aarch64-unknown-linux-gnu/debian/bloop-box_*_arm64.deb
 
   release:
     needs: [build-armhf, build-arm64]
@@ -144,7 +144,7 @@ jobs:
 
       - name: Update version
         run: |
-          sed -i '/\[package\]/,/^version = "[^"]*"$/ s/^version = "[^"]*"$/version = "'"${{ steps.semantic.outputs.new_release_version }}"'"/' Cargo.toml
+          sed -i '/\[package\]/,/^version = "[^"]*"$/ s/^version = "[^"]*"$/version = "'"${{ needs.test-for-release.outputs.new_release_version }}"'"/' Cargo.toml
           cargo update --package bloop-box --offline
 
       - name: Semantic Release
