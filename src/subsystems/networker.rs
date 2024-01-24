@@ -20,7 +20,7 @@ use tokio::time;
 use tokio_graceful_shutdown::{IntoSubsystem, SubsystemHandle};
 use tokio_io_timeout::TimeoutStream;
 use tokio_rustls::client::TlsStream;
-use tokio_rustls::rustls::{self, ClientConfig, OwnedTrustAnchor};
+use tokio_rustls::rustls::{self, ClientConfig};
 use tokio_rustls::TlsConnector;
 
 use crate::nfc::reader::Uid;
@@ -219,13 +219,9 @@ impl Networker {
         }
 
         let mut root_cert_store = rustls::RootCertStore::empty();
-        root_cert_store.add_trust_anchors(webpki_roots::TLS_SERVER_ROOTS.iter().map(|ta| {
-            OwnedTrustAnchor::from_subject_spki_name_constraints(
-                ta.subject,
-                ta.spki,
-                ta.name_constraints,
-            )
-        }));
+        for cert in rustls_native_certs::load_native_certs().expect("could not load platform certs") {
+            root_cert_store.add(&rustls::Certificate(cert.0)).unwrap();
+        };
 
         let client_config = ClientConfig::builder()
             .with_safe_defaults()

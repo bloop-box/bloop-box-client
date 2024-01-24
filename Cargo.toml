@@ -38,6 +38,7 @@ rand_distr = "0.4.3"
 regex = "1.7.1"
 lazy_static = "1.4.0"
 local-ip-address = "0.5.6"
+rustls-native-certs = "0.6.3"
 
 [profile.release]
 strip = "debuginfo"
