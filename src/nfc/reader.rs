@@ -29,7 +29,7 @@ impl Serialize for NfcUid {
     where
         S: Serializer,
     {
-        Ok(serializer.serialize_str(&encode(&self.0))?)
+        serializer.serialize_str(&encode(self.0))
     }
 }
 

@@ -152,7 +152,7 @@ impl AudioCollection {
         let mut paths: Vec<PathBuf> = Vec::new();
 
         for entry in glob(format!("{}/*.mp3", path.to_str().unwrap()).as_str()).unwrap() {
-            paths.push(entry.unwrap().as_path().try_into()?);
+            paths.push(entry.unwrap().as_path().into());
         }
 
         if paths.is_empty() {
