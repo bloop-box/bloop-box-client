@@ -102,7 +102,7 @@ impl NdefTextRecord {
     }
 }
 
-pub fn parse_ndef_text_record(data: &Vec<u8>) -> Result<NdefTextRecord> {
+pub fn parse_ndef_text_record(data: &[u8]) -> Result<NdefTextRecord> {
     let record_length = data.len();
     let mut index = 0;
 
