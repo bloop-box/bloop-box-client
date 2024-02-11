@@ -1,3 +1,10 @@
+# [4.1.0](https://github.com/bloop-box/bloop-box-client/compare/v4.0.1...v4.1.0) (2024-02-11)
+
+
+### Features
+
+* create a prettier and easier to edit config file ([9c9c93f](https://github.com/bloop-box/bloop-box-client/commit/9c9c93f2b4bad79c3b0eb6adb466dda0c4ebd451))
+
 ## [4.0.1](https://github.com/bloop-box/bloop-box-client/compare/v4.0.0...v4.0.1) (2023-12-10)
 
 
