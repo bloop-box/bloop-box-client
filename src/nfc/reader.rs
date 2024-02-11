@@ -1,10 +1,47 @@
 use anyhow::{anyhow, Result};
+use hex::{decode_to_slice, encode, FromHex, FromHexError};
 use mfrc522::comm::Interface;
 use mfrc522::{Initialized, Mfrc522};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::nfc::ndef::{parse_ndef_text_record, NdefMessageParser};
 
-pub type Uid = [u8; 7];
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct NfcUid([u8; 7]);
+
+impl NfcUid {
+    pub fn as_bytes(&self) -> &[u8; 7] {
+        &self.0
+    }
+}
+
+impl<'de> Deserialize<'de> for NfcUid {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(Self(hex::deserialize(deserializer)?))
+    }
+}
+
+impl Serialize for NfcUid {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        Ok(serializer.serialize_str(&encode(&self.0))?)
+    }
+}
+
+impl FromHex for NfcUid {
+    type Error = FromHexError;
+
+    fn from_hex<T: AsRef<[u8]>>(hex: T) -> Result<Self, Self::Error> {
+        let mut out = Self([0; 7]);
+        decode_to_slice(hex, &mut out.0 as &mut [u8])?;
+        Ok(out)
+    }
+}
 
 pub struct NfcReader<COMM: Interface> {
     mfrc522: Mfrc522<COMM, Initialized>,
@@ -15,7 +52,7 @@ impl<E, COMM: Interface<Error = E>> NfcReader<COMM> {
         Self { mfrc522 }
     }
 
-    pub fn select_target(&mut self) -> Option<Uid> {
+    pub fn select_target(&mut self) -> Option<NfcUid> {
         let atqa = match self.mfrc522.reqa() {
             Ok(atqa) => atqa,
             Err(_) => return None,
@@ -26,7 +63,7 @@ impl<E, COMM: Interface<Error = E>> NfcReader<COMM> {
             Err(_) => return None,
         };
 
-        let mut uid: Uid = [0; 7];
+        let mut uid: [u8; 7] = [0; 7];
 
         match raw_uid {
             mfrc522::Uid::Single(raw_uid) => uid[0..4].copy_from_slice(raw_uid.as_bytes()),
@@ -34,7 +71,7 @@ impl<E, COMM: Interface<Error = E>> NfcReader<COMM> {
             mfrc522::Uid::Triple(raw_uid) => uid.copy_from_slice(&raw_uid.as_bytes()[0..7]),
         }
 
-        Some(uid)
+        Some(NfcUid(uid))
     }
 
     pub fn check_for_release(&mut self) -> bool {

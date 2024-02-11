@@ -12,7 +12,7 @@ use tokio::sync::oneshot;
 use tokio::time::sleep;
 use tokio_graceful_shutdown::{IntoSubsystem, SubsystemHandle};
 
-use crate::nfc::reader::Uid;
+use crate::nfc::reader::NfcUid;
 use crate::nfc::thread::{start_nfc_listener, NfcCommand};
 use crate::subsystems::audio_player::PlayerCommand;
 use crate::subsystems::config_manager::{ConfigCommand, ConnectionConfig};
@@ -203,8 +203,8 @@ impl Controller {
 
     async fn process_config_command(
         &mut self,
-        uid: Uid,
-        config_uids: &mut Vec<Uid>,
+        uid: NfcUid,
+        config_uids: &mut Vec<NfcUid>,
         nfc: mpsc::Sender<NfcCommand>,
     ) -> Result<bool> {
         let (value_tx, value_rx) = oneshot::channel();
@@ -302,7 +302,7 @@ impl Controller {
 
     async fn add_config_uid(
         &mut self,
-        config_uids: &mut Vec<Uid>,
+        config_uids: &mut Vec<NfcUid>,
         nfc: mpsc::Sender<NfcCommand>,
     ) -> Result<()> {
         self.led.send(LedState::Blink { color: MAGENTA }).await?;

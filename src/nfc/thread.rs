@@ -13,12 +13,12 @@ use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 use tokio::sync::oneshot::error::TryRecvError;
 
-use crate::nfc::reader::{NfcReader, Uid};
+use crate::nfc::reader::{NfcReader, NfcUid};
 
 #[derive(Debug)]
 pub enum NfcCommand {
     Poll {
-        responder: oneshot::Sender<Uid>,
+        responder: oneshot::Sender<NfcUid>,
         cancel_rx: oneshot::Receiver<()>,
     },
     Read {

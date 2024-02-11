@@ -23,7 +23,7 @@ use tokio_rustls::client::TlsStream;
 use tokio_rustls::rustls::{self, ClientConfig, OwnedTrustAnchor};
 use tokio_rustls::TlsConnector;
 
-use crate::nfc::reader::Uid;
+use crate::nfc::reader::NfcUid;
 use crate::subsystems::config_manager::{ConfigCommand, ConnectionConfig};
 use crate::utils::skip_certificate_verification::SkipCertificateVerification;
 
@@ -56,7 +56,7 @@ pub enum NetworkerCommand {
         connection_config: ConnectionConfig,
     },
     CheckUid {
-        uid: Uid,
+        uid: NfcUid,
         responder: oneshot::Sender<CheckUidResponse>,
     },
     GetAudio {
@@ -235,11 +235,11 @@ impl Networker {
         TlsConnector::from(Arc::new(client_config))
     }
 
-    async fn check_uid(&mut self, uid: &Uid) -> Result<CheckUidResponse> {
+    async fn check_uid(&mut self, uid: &NfcUid) -> Result<CheckUidResponse> {
         let stream = self.maybe_stream.as_mut().unwrap();
 
         stream.write_u8(0x00).await?;
-        stream.write_all(uid).await?;
+        stream.write_all(uid.as_bytes()).await?;
 
         let result = stream.read_u8().await?;
 

@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use crate::nfc::reader::Uid;
+use crate::nfc::reader::NfcUid;
 use anyhow::{Error, Result};
 use log::info;
 use serde::{Deserialize, Serialize};
@@ -26,7 +26,7 @@ pub struct VolumeConfig {
 
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Config {
-    pub config_uids: Vec<Uid>,
+    pub config_uids: Vec<NfcUid>,
     pub connection: Option<ConnectionConfig>,
     pub volume: VolumeConfig,
 }
@@ -34,10 +34,10 @@ pub struct Config {
 #[derive(Debug)]
 pub enum ConfigCommand {
     GetConfigUids {
-        responder: oneshot::Sender<Vec<Uid>>,
+        responder: oneshot::Sender<Vec<NfcUid>>,
     },
     SetConfigUids {
-        config_uids: Vec<Uid>,
+        config_uids: Vec<NfcUid>,
         responder: oneshot::Sender<()>,
     },
     GetVolume {
@@ -131,7 +131,7 @@ impl ConfigManager {
     }
 
     async fn store_config(&self, config: &Config) -> Result<()> {
-        let toml_config = toml::to_string(&config)?;
+        let toml_config = toml::to_string_pretty(&config)?;
         let mut file = File::create(&self.config_path).await?;
         file.write_all(toml_config.as_bytes()).await?;
         Ok(())
