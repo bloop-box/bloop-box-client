@@ -1,3 +1,16 @@
+# [5.0.0](https://github.com/bloop-box/bloop-box-client/compare/v4.1.0...v5.0.0) (2025-07-12)
+
+
+### Features
+
+* major rewrite and protocol v3 implementation ([7e2dde5](https://github.com/bloop-box/bloop-box-client/commit/7e2dde59051c7c25623d876b25d89efb974e47f3))
+
+
+### BREAKING CHANGES
+
+* Your server needs to support the Bloop v3 protocol. Additionally you need to
+update your bloop-box-data to conform to the new structure.
+
 # [4.1.0](https://github.com/bloop-box/bloop-box-client/compare/v4.0.1...v4.1.0) (2024-02-11)
 
 
