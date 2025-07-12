@@ -7,7 +7,14 @@ plugins:
   - '@semantic-release/changelog'
   - - '@semantic-release/github'
     - assets:
-      - deb-*/*.deb
+        - path: deb-arm64/*.deb
+          label: "Debian package for Raspberry Zero 2 (64 bit)"
+        - path: deb-armhf/*.deb
+          label: "Debian package for Raspberry Zero 1 (32 bit)"
+        - path: emulation-windows-x64/bloop-box.exe
+          label: "Desktop emulation for Windows (64 bit)"
+        - path: emulation-linux-x64/bloop-box
+          label: "Desktop emulation for Linux (64 bit)"
   - - '@semantic-release/git'
     - assets:
       - CHANGELOG.md

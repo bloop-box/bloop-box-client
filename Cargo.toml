@@ -7,37 +7,48 @@ edition = "2021"
 readme = "README.md"
 license-file = "LICENSE"
 
+[features]
+default = ["hardware"]
+hardware-emulation = ["dep:eframe", "dep:egui"]
+hardware = ["dep:aw2013", "dep:mfrc522", "dep:gpiocdev", "dep:ndef-rs", "dep:linux-embedded-hal"]
+with-bindgen = ["dep:aws-lc-sys"]
+
 [dependencies]
-env_logger = "0.10.0"
-anyhow = "1.0.57"
-log = "0.4.16"
-clap = { version = "4.1.4", features = ["derive"] }
-tokio = { version = "1.17.0", features = ["full"] }
-tokio-graceful-shutdown = "0.13.0"
+anyhow = "1.0.98"
+tokio = { version = "1.46.1", features = ["full"] }
+tokio-graceful-shutdown = "0.16.0"
 async-trait = "0.1.53"
-rppal = "0.16.0"
-untildify = "0.1.0"
-toml = "0.8.2"
-serde = { version = "1.0.136", features = ["derive"] }
-rand = "0.8.5"
-mfrc522 = "0.6.0"
-serde_json = "1.0.85"
-tokio-rustls = "0.24.1"
-rustls = { version = "0.21.7", features = ["dangerous_configuration"] }
-webpki-roots = "0.25.2"
+toml = "0.9.2"
+serde = { version = "1.0.219", features = ["derive"] }
+rand = "0.9.1"
+mfrc522 = { version = "0.8.0", optional = true }
+serde_json = "1.0.140"
+tokio-rustls = "0.26.2"
+rustls = "0.23.28"
+webpki-roots = "1.0.1"
 tokio-io-timeout = "1.2.0"
-thiserror = "1.0.37"
-futures-util = "0.3.24"
-glob = "0.3.0"
+thiserror = "2.0.12"
 hex = { version = "0.4.3", features = ["serde"] }
-linux-embedded-hal = "0.3.2"
-embedded-hal = "0.2.7"
-rodio = { version = "0.17.1", features = ["symphonia-mp3"] }
-aw2013 = "1.0.0"
-rand_distr = "0.4.3"
+linux-embedded-hal = { version = "0.4.0", features = ["async-tokio", "i2c", "i2cdev", "spi", "spidev"], default-features = false, optional = true }
+rodio = { version = "0.20.1", features = ["mp3", "tracing"], default-features = false }
+aw2013 = { version = "2.1.0", optional = true }
+rand_distr = "0.5.1"
 regex = "1.7.1"
-lazy_static = "1.4.0"
-local-ip-address = "0.5.6"
+local-ip-address = "0.6.5"
+tracing = "0.1.41"
+eframe = { version = "0.32.0", optional = true }
+egui = { version = "0.32.0", optional = true }
+gpiocdev = { version = "0.7.3", features = ["async_tokio"], optional = true }
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+ndef-rs = { version = "0.2.2", optional = true }
+tokio-util = "0.7.15"
+directories = { version = "6.0.0" }
+uuid = { version = "1.17.0", features = ["serde"] }
+bitmask-enum = "2.2.5"
+byteorder = "1.5.0"
+rustls-native-certs = "0.8.1"
+include_dir = "0.7.4"
+aws-lc-sys = { version = "0.30", optional = true, features = ["bindgen"] }
 
 [profile.release]
 strip = "debuginfo"

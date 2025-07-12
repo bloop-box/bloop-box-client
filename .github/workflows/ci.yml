@@ -5,25 +5,23 @@ on:
     branches:
       - main
 
-env:
-  RUST_BACKTRACE: 1
-
 jobs:
   check:
     name: Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - run: sudo apt-get install libasound2-dev
       - uses: Swatinem/rust-cache@v2
       - run: cargo check
+      - run: cargo check --no-default-features --features hardware-emulation
 
   fmt:
     name: Rustfmt
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
@@ -35,13 +33,14 @@ jobs:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
       - run: sudo apt-get install libasound2-dev
       - uses: Swatinem/rust-cache@v2
       - run: cargo clippy -- -D warnings
+      - run: cargo clippy --no-default-features --features hardware-emulation -- -D warnings
 
   test-for-release:
     needs: [check, fmt, clippy]
@@ -55,7 +54,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -68,19 +67,39 @@ jobs:
         with:
           dry_run: true
 
-      - name: Update version
-        if: steps.semantic.outputs.new_release_published == 'true'
-        run: |
-          sed -i '/\[package\]/,/^version = "[^"]*"$/ s/^version = "[^"]*"$/version = "'"${{ steps.semantic.outputs.new_release_version }}"'"/' Cargo.toml
-
-  build-armhf:
+  build:
     needs: [test-for-release]
     if: needs.test-for-release.outputs.new_release_published == 'true'
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        include:
+          - target: arm-unknown-linux-gnueabihf
+            build_flags: "--features with-bindgen"
+            name: deb-armhf
+            path: target/arm-unknown-linux-gnueabihf/debian/bloop-box_*_armhf.deb
+            build_deb: true
+          - target: aarch64-unknown-linux-gnu
+            build_flags: ""
+            name: deb-arm64
+            path: target/aarch64-unknown-linux-gnu/debian/bloop-box_*_arm64.deb
+            build_deb: true
+          - target: x86_64-unknown-linux-gnu
+            build_flags: "--no-default-features --features hardware-emulation"
+            features: "hardware-emulation"
+            name: emulation-linux-x64
+            path: target/x86_64-unknown-linux-gnu/release/bloop-box
+            build_deb: false
+          - target: x86_64-pc-windows-gnu
+            build_flags: "--no-default-features --features hardware-emulation"
+            name: emulation-windows-x64
+            path: target/x86_64-pc-windows-gnu/release/bloop-box.exe
+            build_deb: false
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -88,43 +107,55 @@ jobs:
       - name: Install Rust Stable
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Build
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-edit,cargo-deb
+
+      - name: Build binary
         run: |
-          ./build-deb.sh ${{ needs.test-for-release.outputs.new_release_version }} arm-unknown-linux-gnueabihf
+          cargo set-version "${{ needs.test-for-release.outputs.new_release_version }}"
+          # Compilation does not work with current release
+          cargo install cross --git https://github.com/cross-rs/cross
+          cross build --target "${{ matrix.target }}" --release ${{ matrix.build_flags }}
+
+      - name: Bundle deb
+        if: matrix.build_deb == true
+        run: |
+          cp -a "target/${{ matrix.target }}/release/bloop-box" target/bloop-box
+          cargo-deb -v --no-build --target "${{ matrix.target }}" --no-strip
+  
+          # This is workaround for https://github.com/kornelski/cargo-deb/issues/47
+          # Patch the generated DEB to have ./ paths compatible with `unattended-upgrade`:
+          pushd "target/${{ matrix.target }}/debian"
+          DEB_FILE_NAME=$(ls -1 *.deb | head -n 1)
+          DATA_ARCHIVE=$(ar t "${DEB_FILE_NAME}"| grep -E '^data\.tar')
+          ar x "${DEB_FILE_NAME}" "${DATA_ARCHIVE}"
+          tar tf "${DATA_ARCHIVE}"
+          
+          if [[ "${DATA_ARCHIVE}" == *.xz ]]; then
+            # Install XZ support that will be needed by TAR
+            sudo apt-get -y install xz-utils
+            EXTRA_TAR_ARGS=J
+          fi
+          
+          rm -rf tar-hack
+          mkdir tar-hack
+          tar -C tar-hack -xf "${DATA_ARCHIVE}"
+          pushd tar-hack
+          tar c${EXTRA_TAR_ARGS}f "../${DATA_ARCHIVE}" --owner=0 --group=0 ./*
+          popd
+          tar tf "${DATA_ARCHIVE}"
+          ar r "${DEB_FILE_NAME}" "${DATA_ARCHIVE}"
+          popd
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: deb-armhf
-          path: target/arm-unknown-linux-gnueabihf/debian/bloop-box_*_armhf.deb
-
-  build-arm64:
-    needs: [test-for-release]
-    if: needs.test-for-release.outputs.new_release_published == 'true'
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Install Rust Stable
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Build
-        run: |
-          ./build-deb.sh ${{ needs.test-for-release.outputs.new_release_version }} aarch64-unknown-linux-gnu
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: deb-arm64
-          path: target/aarch64-unknown-linux-gnu/debian/bloop-box_*_arm64.deb
+          name: ${{ matrix.name }}
+          path: ${{ matrix.path }}
 
   release:
-    needs: [test-for-release, build-armhf, build-arm64]
+    needs: [test-for-release, build]
     name: Semantic Release
     runs-on: ubuntu-latest
     if: needs.test-for-release.outputs.new_release_published == 'true'
@@ -137,14 +168,18 @@ jobs:
           persist-credentials: false
 
       - name: Download Build Artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
 
       - name: Install Rust Stable
         uses: dtolnay/rust-toolchain@stable
 
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-edit
+
       - name: Update version
         run: |
-          sed -i '/\[package\]/,/^version = "[^"]*"$/ s/^version = "[^"]*"$/version = "'"${{ needs.test-for-release.outputs.new_release_version }}"'"/' Cargo.toml
+          cargo set-version "${{ needs.test-for-release.outputs.new_release_version }}"
           cargo update --package bloop-box
 
       - name: Semantic Release

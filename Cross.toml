@@ -1,7 +1,44 @@
-[target.arm-unknown-linux-gnueabihf.dockerfile]
-file = "./cross-rs/Dockerfile.armhf"
-context = "./cross-rs/"
+[target.arm-unknown-linux-gnueabihf]
+pre-build = [
+    "rm /etc/apt/preferences.d/all-packages",
+    "dpkg --add-architecture $CROSS_DEB_ARCH",
+    "apt-get update",
+    "apt-get install --assume-yes libasound2-dev:$CROSS_DEB_ARCH",
+    "echo $CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_RUSTFLAGS"
+]
+env.passthrough = [
+    "PKG_CONFIG_LIBDIR=/usr/local/lib/arm-linux-gnueabihf/pkgconfig:/usr/lib/arm-linux-gnueabihf/pkgconfig",
+    "CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_RUSTFLAGS=-L /usr/lib/arm-linux-gnueabihf -C link-args=-Wl,-rpath-link,/usr/lib/arm-linux-gnueabihf",
+]
 
-[target.aarch64-unknown-linux-gnu.dockerfile]
-file = "./cross-rs/Dockerfile.aarch64"
-context = "./cross-rs/"
+[target.aarch64-unknown-linux-gnu]
+pre-build = [
+    "dpkg --add-architecture $CROSS_DEB_ARCH",
+    "apt-get update",
+    "apt-get install --assume-yes libasound2-dev:$CROSS_DEB_ARCH",
+]
+
+[target.x86_64-unknown-linux-gnu]
+pre-build = [
+    "dpkg --add-architecture $CROSS_DEB_ARCH",
+    "apt-get update",
+    "apt-get install --assume-yes clang libclang1 cmake",
+    "update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 100",
+    "update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 100",
+    "apt-get install --assume-yes libasound2-dev:$CROSS_DEB_ARCH",
+]
+env.passthrough = [
+    "CC=clang",
+    "CXX=clang++",
+]
+
+[target.x86_64-pc-windows-gnu]
+pre-build = [
+    "cargo install --force --locked bindgen-cli",
+    "mv $HOME/.cargo/bin/bindgen /usr/bin",
+    "apt-get update",
+    "apt-get install --assume-yes nasm wget",
+    "mkdir -pm755 /etc/apt/keyrings",
+    "wget -NP /etc/apt/sources.list.d/ https://dl.winehq.org/wine-builds/ubuntu/dists/jammy/winehq-jammy.sources",
+    "apt-get install --assume-yes --install-recommends winehq-stable",
+]
