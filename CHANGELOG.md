@@ -1,3 +1,10 @@
+## [5.0.1](https://github.com/bloop-box/bloop-box-client/compare/v5.0.0...v5.0.1) (2026-02-17)
+
+
+### Bug Fixes
+
+* use previous NDEF parser and fix NFC reader halt logic ([f0a9550](https://github.com/bloop-box/bloop-box-client/commit/f0a95504b368fd31dd362eb102644e318f91f60a))
+
 # [5.0.0](https://github.com/bloop-box/bloop-box-client/compare/v4.1.0...v5.0.0) (2025-07-12)
 
 
