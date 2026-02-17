@@ -1,5 +1,5 @@
-use crate::hardware::ndef::{parse_ndef_text_record, NdefMessageParser};
 use crate::hardware::nfc::{NfcReaderRequest, NfcUid};
+use crate::hardware::pi::ndef::{parse_ndef_text_record, NdefMessageParser};
 use crate::thread::{supervised_thread, SupervisedThread};
 use anyhow::{anyhow, Context, Result};
 use gpiocdev::line::Value;

@@ -18,6 +18,7 @@ use tracing::info;
 pub mod asset;
 mod buttons;
 mod led;
+mod ndef;
 mod nfc;
 pub mod system;
 
