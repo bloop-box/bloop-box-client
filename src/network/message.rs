@@ -2,12 +2,11 @@ use crate::hardware::nfc::NfcUid;
 use anyhow::anyhow;
 use bitmask_enum::bitmask;
 use byteorder::{LittleEndian, ReadBytesExt};
+use hex::{decode_to_slice, FromHex, FromHexError};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::io::{self, Cursor, Read};
 use std::net::IpAddr;
-use hex::{decode_to_slice, FromHex, FromHexError};
 use uuid::Uuid;
-use crate::network::AudioResponse::Data;
 
 #[derive(Debug, Clone)]
 pub struct Message {

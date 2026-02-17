@@ -15,7 +15,7 @@ use std::thread::sleep;
 use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
-use tracing::{info, instrument, warn};
+use tracing::{instrument, warn};
 
 #[derive(Debug, Deserialize)]
 pub struct NfcReaderConfig {
