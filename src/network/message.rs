@@ -2,10 +2,12 @@ use crate::hardware::nfc::NfcUid;
 use anyhow::anyhow;
 use bitmask_enum::bitmask;
 use byteorder::{LittleEndian, ReadBytesExt};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::io::{self, Cursor, Read};
 use std::net::IpAddr;
+use hex::{decode_to_slice, FromHex, FromHexError};
 use uuid::Uuid;
+use crate::network::AudioResponse::Data;
 
 #[derive(Debug, Clone)]
 pub struct Message {
@@ -31,12 +33,43 @@ impl Message {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DataHash(Vec<u8>);
 
 impl From<Vec<u8>> for DataHash {
     fn from(value: Vec<u8>) -> Self {
         Self(value)
+    }
+}
+
+impl<'de> Deserialize<'de> for DataHash {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let hex = String::deserialize(deserializer)?;
+        DataHash::from_hex(&hex).map_err(serde::de::Error::custom)
+    }
+}
+
+impl Serialize for DataHash {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&hex::encode(self.as_bytes()))
+    }
+}
+
+impl FromHex for DataHash {
+    type Error = FromHexError;
+
+    fn from_hex<T: AsRef<[u8]>>(hex: T) -> Result<Self, Self::Error> {
+        let hex_bytes = hex.as_ref();
+        let mut decoded = vec![0u8; hex_bytes.len() / 2];
+        decode_to_slice(hex, &mut decoded)?;
+
+        Ok(DataHash::from(decoded))
     }
 }
 

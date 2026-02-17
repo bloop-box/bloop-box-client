@@ -1,3 +1,4 @@
+use crate::hardware::ndef::{parse_ndef_text_record, NdefMessageParser};
 use crate::hardware::nfc::{NfcReaderRequest, NfcUid};
 use crate::thread::{supervised_thread, SupervisedThread};
 use anyhow::{anyhow, Context, Result};
@@ -8,14 +9,13 @@ use linux_embedded_hal::SpidevDevice;
 use mfrc522::comm::blocking::spi::SpiInterface;
 use mfrc522::comm::Interface;
 use mfrc522::{Initialized, Mfrc522};
-use ndef_rs::NdefMessage;
 use serde::Deserialize;
 use std::path::PathBuf;
 use std::thread::sleep;
 use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
-use tracing::{instrument, warn};
+use tracing::{info, instrument, warn};
 
 #[derive(Debug, Deserialize)]
 pub struct NfcReaderConfig {
@@ -102,7 +102,7 @@ fn nfc_reader_thread(
             NfcReaderRequest::WaitForCardPresent(response) => {
                 let uid = loop {
                     if response.is_closed() {
-                        break 'main_loop;
+                        continue 'main_loop;
                     }
 
                     if let Some(uid) = adapter.select_target() {
@@ -118,7 +118,7 @@ fn nfc_reader_thread(
             NfcReaderRequest::WaitForCardAbsent(response) => {
                 loop {
                     if response.is_closed() {
-                        break 'main_loop;
+                        continue 'main_loop;
                     }
 
                     if adapter.check_for_release() {
@@ -140,23 +140,8 @@ fn nfc_reader_thread(
                         continue 'main_loop;
                     }
                 };
-                let result = NdefMessage::decode(data);
 
-                match result {
-                    Ok(value) => {
-                        let Some(record) = value.records().first() else {
-                            let _ = response.send(None);
-                            continue 'main_loop;
-                        };
-
-                        let value = String::from_utf8_lossy(record.payload()).to_string();
-                        let _ = response.send(Some(value));
-                    }
-                    Err(err) => {
-                        warn!("Failed to parse NDEF message: {:?}", err);
-                        let _ = response.send(None);
-                    }
-                }
+                let _ = response.send(Some(data));
             }
         }
     }
@@ -201,7 +186,9 @@ impl<E, COMM: Interface<Error = E>> Adapter<COMM> {
         }
     }
 
-    pub fn read_data(&mut self) -> Result<Vec<u8>> {
+    pub fn read_data(&mut self) -> Result<String> {
+        let mut ndef_message_parser = NdefMessageParser::new();
+
         let capabilities = self
             .mfrc522
             .mf_read(3)
@@ -210,17 +197,28 @@ impl<E, COMM: Interface<Error = E>> Adapter<COMM> {
         let total_bytes = (capabilities[2] as usize) * 8;
         let total_pages = total_bytes / 4;
         let total_quads = (total_pages / 4) as u8;
-        let mut data = Vec::with_capacity(total_bytes);
 
         for quad in 1..total_quads + 1 {
             let quad_data = self
                 .mfrc522
                 .mf_read(4 * quad)
                 .map_err(|_| anyhow!("Failed to read block {}", 4 * quad))?;
+            ndef_message_parser.add_data(&quad_data);
 
-            data.extend_from_slice(&quad_data);
+            if ndef_message_parser.is_done() {
+                break;
+            }
+
+            if quad == 2 && !ndef_message_parser.has_started() {
+                return Err(anyhow!("No NDEF message found in first sector"));
+            }
         }
 
-        Ok(data)
+        if !ndef_message_parser.is_done() {
+            return Err(anyhow!("NDEF message incomplete"));
+        }
+
+        let record = parse_ndef_text_record(ndef_message_parser.data.as_slice())?;
+        record.text()
     }
 }

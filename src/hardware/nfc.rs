@@ -1,7 +1,7 @@
 use hex::{decode_to_slice, FromHex, FromHexError};
 #[cfg(not(feature = "hardware-emulation"))]
 use mfrc522::Uid;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::fmt;
 use std::fmt::Display;
 use thiserror::Error;
@@ -13,7 +13,7 @@ pub enum NfcUidError {
     InvalidLength,
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum NfcUid {
     Single([u8; 4]),
     Double([u8; 7]),
@@ -39,6 +39,25 @@ impl Display for NfcUid {
                 data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7], data[8]
             ),
         }
+    }
+}
+
+impl<'de> Deserialize<'de> for NfcUid {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let hex = String::deserialize(deserializer)?;
+        NfcUid::from_hex(&hex).map_err(serde::de::Error::custom)
+    }
+}
+
+impl Serialize for NfcUid {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&hex::encode(self.as_bytes()))
     }
 }
 
@@ -79,6 +98,14 @@ impl FromHex for NfcUid {
 }
 
 impl NfcUid {
+    pub fn as_bytes(&self) -> &[u8] {
+        match self {
+            NfcUid::Single(data) => data,
+            NfcUid::Double(data) => data,
+            NfcUid::Triple(data) => data,
+        }
+    }
+
     pub fn as_tagged_bytes(&self) -> Vec<u8> {
         let raw_bytes: Vec<u8> = match self {
             NfcUid::Single(data) => data.into(),

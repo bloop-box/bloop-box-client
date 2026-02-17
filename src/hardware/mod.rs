@@ -18,6 +18,7 @@ pub mod buttons;
 #[cfg(feature = "hardware-emulation")]
 mod emulated;
 pub mod led;
+mod ndef;
 pub mod nfc;
 #[cfg(not(feature = "hardware-emulation"))]
 mod pi;

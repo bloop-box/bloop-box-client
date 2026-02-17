@@ -3,7 +3,7 @@ use std::panic::UnwindSafe;
 use std::thread::JoinHandle;
 use std::{io, panic, thread};
 use tokio_util::sync::CancellationToken;
-use tracing::error;
+use tracing::{error, info};
 
 pub struct SupervisedThread {
     name: String,
@@ -64,6 +64,8 @@ pub fn unwrap_threads(threads: Vec<SupervisedThread>) -> bool {
             error!("Thread {:?} failed: {:?}", thread.name, err);
             has_errors = true;
         }
+
+        info!("Thread {:?} shut down successfully", thread.name);
     }
 
     has_errors

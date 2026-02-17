@@ -10,7 +10,7 @@ license-file = "LICENSE"
 [features]
 default = ["hardware"]
 hardware-emulation = ["dep:eframe", "dep:egui"]
-hardware = ["dep:aw2013", "dep:mfrc522", "dep:gpiocdev", "dep:ndef-rs", "dep:linux-embedded-hal"]
+hardware = ["dep:aw2013", "dep:mfrc522", "dep:gpiocdev", "dep:linux-embedded-hal"]
 with-bindgen = ["dep:aws-lc-sys"]
 
 [dependencies]
@@ -40,7 +40,6 @@ eframe = { version = "0.32.0", optional = true }
 egui = { version = "0.32.0", optional = true }
 gpiocdev = { version = "0.7.3", features = ["async_tokio"], optional = true }
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
-ndef-rs = { version = "0.2.2", optional = true }
 tokio-util = "0.7.15"
 directories = { version = "6.0.0" }
 uuid = { version = "1.17.0", features = ["serde"] }
