@@ -1,3 +1,10 @@
+## [5.0.2](https://github.com/bloop-box/bloop-box-client/compare/v5.0.1...v5.0.2) (2026-02-21)
+
+
+### Bug Fixes
+
+* join base path for asset playback ([58ec11a](https://github.com/bloop-box/bloop-box-client/commit/58ec11ab6181cc1e5fa570428b8e38d055edd052))
+
 ## [5.0.1](https://github.com/bloop-box/bloop-box-client/compare/v5.0.0...v5.0.1) (2026-02-17)
 
 
