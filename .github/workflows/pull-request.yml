@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
-      - run: sudo apt-get install libasound2-dev
+      - run: sudo apt-get update && sudo apt-get install libasound2-dev
       - uses: Swatinem/rust-cache@v2
       - run: cargo check
       - run: cargo check --no-default-features --features hardware-emulation
@@ -24,7 +24,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
-      - run: sudo apt-get install libasound2-dev
+      - run: sudo apt-get update && sudo apt-get install libasound2-dev
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --all -- --check
 
@@ -36,7 +36,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-      - run: sudo apt-get install libasound2-dev
+      - run: sudo apt-get update && sudo apt-get install libasound2-dev
       - uses: Swatinem/rust-cache@v2
       - run: cargo clippy -- -D warnings
       - run: cargo clippy --no-default-features --features hardware-emulation -- -D warnings
