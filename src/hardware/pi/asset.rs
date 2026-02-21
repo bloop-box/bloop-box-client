@@ -17,7 +17,7 @@ impl AssetLoader {
     }
 
     pub fn read_file<P: AsRef<Path>>(&self, path: P) -> Result<BufReader<File>> {
-        let file = File::open(&path)
+        let file = File::open(self.base_path.join(&path))
             .with_context(|| anyhow!("failed to open file: {}", path.as_ref().display()))?;
 
         Ok(BufReader::new(file))

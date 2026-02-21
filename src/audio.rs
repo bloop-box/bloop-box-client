@@ -55,7 +55,7 @@ impl AudioPlayer {
     }
 
     pub async fn play_throttled(&mut self) -> Result<()> {
-        self.play_asset("throttled.mp3").await
+        self.play_asset("throttle.mp3").await
     }
 
     pub async fn play_file<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
@@ -92,8 +92,14 @@ impl AudioPlayer {
             })
             .await;
 
-            if let Err(err) = result {
-                error!("failed to play audio task: {}", err);
+            match result {
+                Err(err) => {
+                    error!("failed to play audio: {}", err);
+                }
+                Ok(Err(err)) => {
+                    error!("failed to play audio: {}", err);
+                }
+                Ok(Ok(())) => {}
             }
         })
     }
@@ -110,8 +116,14 @@ impl AudioPlayer {
             })
             .await;
 
-            if let Err(err) = result {
-                error!("failed to play audio task: {}", err);
+            match result {
+                Err(err) => {
+                    error!("failed to play audio: {}", err);
+                }
+                Ok(Err(err)) => {
+                    error!("failed to play audio: {}", err);
+                }
+                Ok(Ok(())) => {}
             }
         })
     }
