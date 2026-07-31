@@ -1,3 +1,10 @@
+# [5.1.0](https://github.com/bloop-box/bloop-box-client/compare/v5.0.2...v5.1.0) (2026-07-31)
+
+
+### Features
+
+* migrate to the bloop client framework ([9c7496e](https://github.com/bloop-box/bloop-box-client/commit/9c7496e29d2e3cd5440199a8ae191c1ec0c4c0f0))
+
 ## [5.0.2](https://github.com/bloop-box/bloop-box-client/compare/v5.0.1...v5.0.2) (2026-02-21)
 
 
