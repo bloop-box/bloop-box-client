@@ -3,50 +3,81 @@ use crate::hardware::data_path;
 use crate::hardware::led::{Color, LedController};
 use crate::hardware::nfc::{NfcReader, NfcUid};
 use crate::hardware::system::{set_wifi_credentials, shutdown_system};
-use crate::network::task::{ConnectionState, NetworkStatus};
-use crate::network::{
-    AudioResponse, BloopResponse, Capabilities, DataHash, NetworkClient, PreloadCheckResponse,
-};
 use crate::state::PersistedState;
-use anyhow::{anyhow, bail, Context, Error, Result};
+use anyhow::{bail, Error, Result};
+use bloop_client_framework::{
+    AudioCache, BloopClient, ConnectionConfig, ConnectionStatus, PreloadOutcome, RequestError,
+};
+use bloop_protocol::message::ErrorResponse;
+use bloop_protocol::{Capabilities, DataHash};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use std::path::PathBuf;
 use std::time::Duration;
-use tokio::fs::metadata;
 use tokio::sync::{mpsc, watch};
 use tokio::time::sleep;
-use tokio::{fs, join, select};
+use tokio::{join, select};
 use tokio_graceful_shutdown::{FutureExt, IntoSubsystem, SubsystemHandle};
-use tracing::{debug, error, info, instrument, warn};
+use tracing::{error, info, instrument, warn};
+
+/// Persisted connection details, written by the `c` config card.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ConnectionState {
+    pub host: String,
+    pub port: u16,
+    pub client_id: String,
+    pub client_secret: String,
+}
+
+impl From<ConnectionState> for ConnectionConfig {
+    fn from(state: ConnectionState) -> Self {
+        Self {
+            host: state.host,
+            port: state.port,
+            client_id: state.client_id,
+            client_secret: state.client_secret,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct NetworkState {
+    connection: Option<ConnectionState>,
+}
 
 pub struct EngineProps {
     pub led_controller: LedController,
     pub nfc_reader: NfcReader,
-    pub network_client: NetworkClient,
+    pub network_client: BloopClient,
     pub audio_player: AudioPlayer,
-    pub network_status: watch::Receiver<NetworkStatus>,
+    pub network_status: watch::Receiver<ConnectionStatus>,
     pub volume_range_tx: mpsc::Sender<(f32, f32)>,
 }
 
 pub struct Engine {
     led_controller: LedController,
     nfc_reader: NfcReader,
-    network_client: NetworkClient,
+    network_client: BloopClient,
     audio_player: AudioPlayer,
-    network_status: watch::Receiver<NetworkStatus>,
-    cache_path: PathBuf,
+    network_status: watch::Receiver<ConnectionStatus>,
+    audio_cache: AudioCache,
     volume_range_tx: mpsc::Sender<(f32, f32)>,
     state: PersistedState<EngineState>,
+    network_state: PersistedState<NetworkState>,
 }
 
 impl Engine {
     pub async fn new(props: EngineProps) -> Result<Self> {
         let state = PersistedState::new("engine", None).await?;
-        let cache_path = data_path().await?.join("cache");
-        fs::create_dir_all(&cache_path).await.with_context(|| {
-            format!("failed to create cache directory: {}", cache_path.display())
-        })?;
+        let network_state: PersistedState<NetworkState> =
+            PersistedState::new("network", None).await?;
+        let audio_cache = AudioCache::new(data_path().await?.join("cache"));
+
+        if let Some(connection) = network_state.connection.clone() {
+            props
+                .network_client
+                .configure(Some(connection.into()))
+                .await?;
+        }
 
         Ok(Self {
             led_controller: props.led_controller,
@@ -55,8 +86,9 @@ impl Engine {
             audio_player: props.audio_player,
             network_status: props.network_status,
             volume_range_tx: props.volume_range_tx,
-            cache_path,
+            audio_cache,
             state,
+            network_state,
         })
     }
 
@@ -82,7 +114,7 @@ impl Engine {
 
     #[instrument(skip(self, nfc_uid, subsys))]
     async fn handle_nfc_scan(&mut self, nfc_uid: NfcUid, subsys: &SubsystemHandle) -> Result<()> {
-        info!("handling nfc scan: {}", nfc_uid);
+        info!("handling nfc scan: {}", hex::encode(nfc_uid.as_bytes()));
         self.led_controller.set_static(Color::Magenta).await?;
 
         if self.state.config_nfc_uids.contains(&nfc_uid) {
@@ -105,7 +137,7 @@ impl Engine {
 
         if !matches!(
             *self.network_status.borrow(),
-            NetworkStatus::Connected { .. }
+            ConnectionStatus::Connected { .. }
         ) {
             self.nfc_reader.wait_for_removal().await?;
             return Ok(());
@@ -123,47 +155,43 @@ impl Engine {
             self.audio_player.play_bloop(),
         );
 
-        match bloop_response? {
-            BloopResponse::Accepted { achievements } => {
+        match bloop_response {
+            Ok(achievements) => {
                 info!("NFC UID accepted, achievements awarded: {:?}", achievements);
 
                 for achievement in achievements {
                     self.audio_player.play_award().await?;
 
-                    if achievement.audio_file_hash.is_none() {
-                        continue;
-                    }
-
-                    let filename = achievement.filename()?;
-                    let path = self.cache_path.join(&filename);
-
-                    if metadata(&path).await.is_err() {
-                        let response = self.network_client.retrieve_audio(achievement.id).await?;
-
-                        match response {
-                            AudioResponse::Data(data) => fs::write(&path, data).await?,
-                            AudioResponse::NotFound => {
-                                warn!("audio file not found for achievement {}", achievement.id);
-                                continue;
-                            }
-                            AudioResponse::Disconnected => {
-                                warn!("disconnected while loading achievement: {}", achievement.id);
-                                continue;
-                            }
+                    match self
+                        .audio_cache
+                        .ensure(&self.network_client, &achievement)
+                        .await
+                    {
+                        Ok(Some(path)) => self.audio_player.play_file(path).await?,
+                        Ok(None) => continue,
+                        Err(error) => {
+                            warn!(
+                                "failed to load audio for achievement {}: {}",
+                                achievement.id, error
+                            );
+                            continue;
                         }
                     }
-
-                    self.audio_player.play_file(path).await?;
                 }
             }
 
-            BloopResponse::Throttled => {
+            Err(RequestError::Error(ErrorResponse::NfcUidThrottled)) => {
                 info!("NFC UID throttled");
                 self.audio_player.play_throttled().await?;
             }
 
-            BloopResponse::Rejected => {
+            Err(RequestError::Error(ErrorResponse::UnknownNfcUid)) => {
                 info!("NFC UID rejected");
+                self.audio_player.play_error().await?;
+            }
+
+            Err(error) => {
+                warn!("bloop failed: {}", error);
                 self.audio_player.play_error().await?;
             }
         }
@@ -179,11 +207,7 @@ impl Engine {
         subsys: &SubsystemHandle,
     ) -> Result<()> {
         info!("handling config card");
-        let mut data = self
-            .nfc_reader
-            .read_card_data()
-            .await?
-            .ok_or(anyhow!("card is empty"))?;
+        let mut data = self.nfc_reader.read_ndef_text().await?;
 
         if data.is_empty() {
             bail!("empty card data");
@@ -204,13 +228,18 @@ impl Engine {
                 let (host, port, client_id, client_secret): (String, u16, String, String) =
                     serde_json::from_str(data.as_str())?;
 
+                let connection = ConnectionState {
+                    host,
+                    port,
+                    client_id,
+                    client_secret,
+                };
+
+                self.network_state.mutate(|state| {
+                    state.connection.replace(connection.clone());
+                })?;
                 self.network_client
-                    .set_connection_state(ConnectionState {
-                        host,
-                        port,
-                        client_id,
-                        client_secret,
-                    })
+                    .configure(Some(connection.into()))
                     .await?;
                 info!("connection details set");
             }
@@ -230,7 +259,7 @@ impl Engine {
                 info!("config cards reset");
             }
             's' => {
-                self.network_client.shutdown().await?;
+                self.network_client.clone().shutdown().await;
                 shutdown_system().await?;
                 subsys.request_shutdown();
                 info!("system shutdown requested");
@@ -245,8 +274,9 @@ impl Engine {
         let status = *self.network_status.borrow_and_update();
         info!("network status changed to {status:?}");
 
-        if let NetworkStatus::Connected { capabilities } = status {
+        if let ConnectionStatus::Connected { capabilities, .. } = status {
             if capabilities.contains(Capabilities::PreloadCheck) {
+                self.led_controller.set_breathing(Color::Cyan).await?;
                 self.preload().await?;
             }
         }
@@ -263,7 +293,7 @@ impl Engine {
             state.config_nfc_uids.insert(nfc_uid);
         })?;
 
-        info!("config card {} added", nfc_uid);
+        info!("config card {} added", hex::encode(nfc_uid.as_bytes()));
         Ok(())
     }
 
@@ -272,61 +302,42 @@ impl Engine {
         info!("starting audio preload");
 
         let audio_manifest_hash = self.state.audio_manifest_hash.clone();
-        let response = self
-            .network_client
-            .preload_check(audio_manifest_hash)
-            .await?;
 
-        let PreloadCheckResponse::Mismatch {
+        let outcome = match self.network_client.preload_check(audio_manifest_hash).await {
+            Ok(outcome) => outcome,
+            Err(error) => {
+                warn!("preload check failed: {}", error);
+                return Ok(());
+            }
+        };
+
+        let PreloadOutcome::Mismatch {
             audio_manifest_hash,
             achievements,
-        } = response
+        } = outcome
         else {
             info!("audio update not required");
             return Ok(());
         };
 
         info!("preloading audio files");
-        let mut succeeded = true;
 
-        for achievement in achievements {
-            if achievement.audio_file_hash.is_none() {
-                debug!(
-                    "audio file hash not present for achievement {}",
-                    achievement.id
-                );
-                continue;
+        match self
+            .audio_cache
+            .sync(&self.network_client, &achievements)
+            .await
+        {
+            Ok(skipped) if skipped.is_empty() => {
+                info!("audio preload succeeded");
+                self.state
+                    .mutate(|state| state.audio_manifest_hash = Some(audio_manifest_hash))?;
             }
-
-            let path = self.cache_path.join(achievement.filename()?);
-
-            if metadata(&path).await.is_ok() {
-                debug!("audio file {} already exists", path.display());
-                continue;
+            Ok(skipped) => {
+                info!("audio preload partial, {} files skipped", skipped.len());
             }
-
-            let response = self.network_client.retrieve_audio(achievement.id).await?;
-
-            match response {
-                AudioResponse::Data(data) => {
-                    fs::write(path, data).await?;
-                    info!("audio for achievement {} downloaded", achievement.id);
-                }
-                AudioResponse::NotFound => {
-                    info!("audio for achievement not found: {}", achievement.id);
-                    succeeded = false;
-                }
-                AudioResponse::Disconnected => {
-                    warn!("disconnected while loading achievement: {}", achievement.id);
-                    succeeded = false;
-                }
+            Err(error) => {
+                warn!("audio preload failed: {}", error);
             }
-        }
-
-        if succeeded {
-            info!("audio preload succeeded");
-            self.state
-                .mutate(|state| state.audio_manifest_hash = Some(audio_manifest_hash))?;
         }
 
         Ok(())
@@ -336,17 +347,20 @@ impl Engine {
         let network_status = *self.network_status.borrow();
 
         match network_status {
-            NetworkStatus::Connected { .. } => {
+            ConnectionStatus::Connected { .. } => {
                 self.led_controller.set_static(Color::Green).await?;
             }
-            NetworkStatus::Disconnected => {
-                self.led_controller.set_breathing(Color::Blue).await?;
-            }
-            NetworkStatus::Unconfigured => {
+            ConnectionStatus::Unconfigured => {
                 self.led_controller.set_breathing(Color::Yellow).await?;
             }
-            NetworkStatus::InvalidCredentials => {
+            ConnectionStatus::InvalidCredentials => {
                 self.led_controller.set_breathing(Color::Red).await?;
+            }
+            ConnectionStatus::Shutdown => {
+                self.led_controller.set_off().await?;
+            }
+            _ => {
+                self.led_controller.set_breathing(Color::Blue).await?;
             }
         }
 
@@ -360,10 +374,9 @@ struct EngineState {
     config_nfc_uids: HashSet<NfcUid>,
 }
 
-#[async_trait::async_trait]
 impl IntoSubsystem<Error> for Engine {
-    async fn run(mut self, subsys: SubsystemHandle) -> Result<()> {
-        if let Ok(result) = self.process(&subsys).cancel_on_shutdown(&subsys).await {
+    async fn run(mut self, subsys: &mut SubsystemHandle) -> Result<()> {
+        if let Ok(result) = self.process(subsys).cancel_on_shutdown(subsys).await {
             result?;
         }
 

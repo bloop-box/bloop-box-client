@@ -10,50 +10,52 @@ license-file = "LICENSE"
 [features]
 default = ["hardware"]
 hardware-emulation = ["dep:eframe", "dep:egui"]
-hardware = ["dep:aw2013", "dep:mfrc522", "dep:gpiocdev", "dep:linux-embedded-hal"]
+hardware = [
+    "dep:aw2013",
+    "dep:gpiocdev",
+    "dep:linux-embedded-hal",
+    "bloop-client-framework/nfc-mfrc522",
+]
 with-bindgen = ["dep:aws-lc-sys"]
 
 [dependencies]
-anyhow = "1.0.98"
-tokio = { version = "1.46.1", features = ["full"] }
-tokio-graceful-shutdown = "0.16.0"
-async-trait = "0.1.53"
-toml = "0.9.2"
-serde = { version = "1.0.219", features = ["derive"] }
-rand = "0.9.1"
-mfrc522 = { version = "0.8.0", optional = true }
-serde_json = "1.0.140"
-tokio-rustls = "0.26.2"
-rustls = "0.23.28"
-webpki-roots = "1.0.1"
-tokio-io-timeout = "1.2.0"
-thiserror = "2.0.12"
+anyhow = "1.0.104"
+bloop-client-framework = { version = "1", features = [
+    "audio",
+    "nfc",
+    "tokio-graceful-shutdown",
+] }
+bloop-protocol = { version = "1.2", features = ["serde"] }
+tokio = { version = "1.53.1", features = ["full"] }
+tokio-graceful-shutdown = "0.20.0"
+toml = "1.1.3"
+serde = { version = "1.0.229", features = ["derive"] }
+rand = "0.10.2"
+serde_json = "1.0.151"
+thiserror = "2.0.19"
 hex = { version = "0.4.3", features = ["serde"] }
-linux-embedded-hal = { version = "0.4.0", features = ["async-tokio", "i2c", "i2cdev", "spi", "spidev"], default-features = false, optional = true }
-rodio = { version = "0.20.1", features = ["mp3", "tracing"], default-features = false }
+linux-embedded-hal = { version = "0.4.1", features = ["async-tokio", "i2c", "i2cdev"], default-features = false, optional = true }
 aw2013 = { version = "2.1.0", optional = true }
-rand_distr = "0.5.1"
-regex = "1.7.1"
-local-ip-address = "0.6.5"
-tracing = "0.1.41"
-eframe = { version = "0.32.0", optional = true }
-egui = { version = "0.32.0", optional = true }
-gpiocdev = { version = "0.7.3", features = ["async_tokio"], optional = true }
-tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
-tokio-util = "0.7.15"
+rand_distr = "0.6.0"
+regex = "1.13.1"
+tracing = "0.1.44"
+eframe = { version = "0.35.0", optional = true }
+egui = { version = "0.35.0", optional = true }
+gpiocdev = { version = "0.8.0", features = ["async_tokio"], optional = true }
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+tokio-util = "0.7.19"
 directories = { version = "6.0.0" }
-uuid = { version = "1.17.0", features = ["serde"] }
-bitmask-enum = "2.2.5"
-byteorder = "1.5.0"
-rustls-native-certs = "0.8.1"
+# Not referenced directly; unifies the crypto-provider features and
+# carries the with-bindgen path to aws-lc-sys.
+rustls = "0.23.42"
 include_dir = "0.7.4"
-aws-lc-sys = { version = "0.30", optional = true, features = ["bindgen"] }
+aws-lc-sys = { version = "0.43", optional = true, features = ["bindgen"] }
 
 [profile.release]
 strip = "debuginfo"
 
 [package.metadata.deb]
-depends = "adduser, bloop-box-data, systemd, network-manager"
+depends = "adduser, bloop-box-data, ca-certificates, systemd, network-manager"
 conf-files = ["/etc/bloop-box.conf"]
 maintainer-scripts = "debian/"
 systemd-units = { enable = true }

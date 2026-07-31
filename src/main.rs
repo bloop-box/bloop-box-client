@@ -1,16 +1,15 @@
 use crate::audio::{AudioPlayer, VolumeControlTask};
 use crate::engine::{Engine, EngineProps};
 use crate::hardware::{init_hardware, HardwareContext, InitSubsystems, Peripherals};
-use crate::network::task::{NetworkStatus, NetworkTask, RootCertSource};
-use crate::network::NetworkClient;
 #[cfg(feature = "hardware-emulation")]
 use crate::thread::supervised_thread;
 use crate::thread::unwrap_threads;
 use anyhow::{bail, Result};
+use bloop_client_framework::{BloopClient, RootCertSource};
 use std::env;
 use std::future::Future;
 use tokio::runtime::Runtime;
-use tokio::sync::{mpsc, watch};
+use tokio::sync::mpsc;
 use tokio::time::Duration;
 use tokio_graceful_shutdown::{
     FutureExt, IntoSubsystem, SubsystemBuilder, SubsystemHandle, Toplevel,
@@ -21,7 +20,6 @@ use tracing_subscriber::EnvFilter;
 mod audio;
 mod engine;
 mod hardware;
-mod network;
 mod state;
 mod thread;
 
@@ -48,8 +46,7 @@ fn run_async_runtime(
             .unwrap_or_default()
             .as_str()
         {
-            "built_in" | "" => RootCertSource::BuiltIn,
-            "native" => RootCertSource::Native,
+            "platform" | "native" | "" => RootCertSource::Platform,
             "dangerous_disabled" => RootCertSource::DangerousDisabled,
             value => bail!("invalid value for BLOOP_BOX_ROOT_CERT_SOURCE: {value}"),
         };
@@ -65,31 +62,30 @@ fn run_async_runtime(
         )
         .await?;
 
-        let (network_command_tx, network_command_rx) = mpsc::channel(16);
-        let (network_status_tx, network_status_rx) = watch::channel(NetworkStatus::Disconnected);
-        let network_task =
-            NetworkTask::new(root_cert_source, network_command_rx, network_status_tx).await?;
-        let network_client = NetworkClient::new(network_command_tx);
+        let network_client = BloopClient::builder()
+            .root_cert_source(root_cert_source)
+            .build()?;
+        let network_status = network_client.status();
 
         let engine = Engine::new(EngineProps {
             led_controller: peripherals.led_controller,
             nfc_reader: peripherals.nfc_reader,
-            network_client,
+            network_client: network_client.clone(),
             audio_player,
-            network_status: network_status_rx,
+            network_status,
             volume_range_tx,
         })
         .await?;
 
-        let root_subsystem = async |s: SubsystemHandle| {
-            start_subsystems(&s);
+        let root_subsystem = async |s: &mut SubsystemHandle| {
+            start_subsystems(s);
 
             s.start(SubsystemBuilder::new(
                 "ShutdownDetector",
-                async move |s| -> Result<()> {
+                async move |s: &mut SubsystemHandle| -> Result<()> {
                     if shutdown_token
                         .cancelled()
-                        .cancel_on_shutdown(&s)
+                        .cancel_on_shutdown(s)
                         .await
                         .is_ok()
                     {
@@ -104,11 +100,11 @@ fn run_async_runtime(
                 "VolumeControl",
                 volume_control_task.into_subsystem(),
             ));
-            s.start(SubsystemBuilder::new(
-                "Network",
-                network_task.into_subsystem(),
-            ));
             s.start(SubsystemBuilder::new("Engine", engine.into_subsystem()));
+            s.start(SubsystemBuilder::new(
+                "BloopClient",
+                network_client.into_subsystem(),
+            ));
         };
 
         Toplevel::new(root_subsystem)

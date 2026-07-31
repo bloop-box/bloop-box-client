@@ -1,6 +1,7 @@
 use crate::hardware::emulated::ui::EmulatedCard;
 use crate::hardware::nfc::NfcReaderRequest;
 use anyhow::{Error, Result};
+use tokio::select;
 use tokio::sync::{mpsc, watch};
 use tokio_graceful_shutdown::{FutureExt, IntoSubsystem, SubsystemHandle};
 
@@ -24,34 +25,44 @@ impl NfcReaderTask {
     async fn process(&mut self) -> Result<()> {
         while let Some(request) = self.request_rx.recv().await {
             match request {
-                NfcReaderRequest::WaitForCardPresent(response) => loop {
+                NfcReaderRequest::WaitForCard(mut response) => loop {
                     if let Some(card) = self.ui_rx.borrow().clone() {
                         let _ = response.send(card.uid);
                         break;
                     }
 
-                    let Ok(_) = self.ui_rx.changed().await else {
-                        break;
-                    };
+                    select! {
+                        _ = response.closed() => break,
+                        result = self.ui_rx.changed() => {
+                            if result.is_err() {
+                                break;
+                            }
+                        }
+                    }
                 },
 
-                NfcReaderRequest::WaitForCardAbsent(response) => loop {
+                NfcReaderRequest::WaitForRemoval(mut response) => loop {
                     if self.ui_rx.borrow().is_none() {
                         let _ = response.send(());
                         break;
                     }
 
-                    let Ok(_) = self.ui_rx.changed().await else {
-                        break;
-                    };
+                    select! {
+                        _ = response.closed() => break,
+                        result = self.ui_rx.changed() => {
+                            if result.is_err() {
+                                break;
+                            }
+                        }
+                    }
                 },
 
-                NfcReaderRequest::ReadData(response) => match self.ui_rx.borrow().clone() {
+                NfcReaderRequest::ReadNdefText(response) => match self.ui_rx.borrow().clone() {
                     Some(card) => {
-                        let _ = response.send(Some(card.data));
+                        let _ = response.send(Ok(card.data));
                     }
                     None => {
-                        let _ = response.send(None);
+                        let _ = response.send(Err("no card present".to_string()));
                     }
                 },
             }
@@ -61,10 +72,9 @@ impl NfcReaderTask {
     }
 }
 
-#[async_trait::async_trait]
 impl IntoSubsystem<Error> for NfcReaderTask {
-    async fn run(mut self, subsys: SubsystemHandle) -> Result<()> {
-        if let Ok(result) = self.process().cancel_on_shutdown(&subsys).await {
+    async fn run(mut self, subsys: &mut SubsystemHandle) -> Result<()> {
+        if let Ok(result) = self.process().cancel_on_shutdown(subsys).await {
             result?;
         }
 

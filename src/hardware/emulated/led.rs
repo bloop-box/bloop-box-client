@@ -52,6 +52,7 @@ impl LedControllerTask {
         };
 
         let new_color = match state {
+            LedState::Off => Color32::BLACK,
             LedState::Static(color) => {
                 let (r, g, b) = color.rgb();
                 Color32::from_rgb(r, g, b)
@@ -80,10 +81,9 @@ impl LedControllerTask {
     }
 }
 
-#[async_trait::async_trait]
 impl IntoSubsystem<Error> for LedControllerTask {
-    async fn run(mut self, subsys: SubsystemHandle) -> Result<()> {
-        if let Ok(result) = self.process().cancel_on_shutdown(&subsys).await {
+    async fn run(mut self, subsys: &mut SubsystemHandle) -> Result<()> {
+        if let Ok(result) = self.process().cancel_on_shutdown(subsys).await {
             result?;
         }
 

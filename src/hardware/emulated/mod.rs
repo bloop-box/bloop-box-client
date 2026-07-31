@@ -28,7 +28,7 @@ pub struct HardwareContext {
 pub fn init_hardware(shutdown_token: CancellationToken) -> Result<HardwareContext> {
     let (led_state_tx, led_state_rx) = mpsc::channel(32);
     let (button_tx, button_rx) = mpsc::channel(32);
-    let (nfc_reader_tx, nfc_reader_rx) = mpsc::channel(32);
+    let (nfc_reader_handle, nfc_reader_rx) = NfcReader::channel();
     let (led_ui_tx, led_ui_rx) = watch::channel(Color32::BLACK);
     let (emulated_card_tx, emulated_card_rx) = watch::channel(None);
 
@@ -40,7 +40,7 @@ pub fn init_hardware(shutdown_token: CancellationToken) -> Result<HardwareContex
 
     let peripherals = Peripherals {
         led_controller: LedController::new(led_state_tx),
-        nfc_reader: NfcReader::new(nfc_reader_tx),
+        nfc_reader: nfc_reader_handle,
         button_receiver: button_rx,
     };
 

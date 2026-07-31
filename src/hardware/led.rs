@@ -54,10 +54,18 @@ impl LedController {
             .await
             .map_err(|_| Error::Disconnected)
     }
+
+    pub async fn set_off(&self) -> Result<(), Error> {
+        self.tx
+            .send(LedState::Off)
+            .await
+            .map_err(|_| Error::Disconnected)
+    }
 }
 
 #[derive(Debug)]
 pub(super) enum LedState {
+    Off,
     Static(Color),
     Breathing(Color),
 }

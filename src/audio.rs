@@ -1,20 +1,17 @@
 use crate::hardware::asset::AssetLoader;
 use crate::hardware::buttons::{Button, ButtonReceiver};
 use crate::state::PersistedState;
-use anyhow::{anyhow, bail, Context, Error, Result};
+use anyhow::{bail, Error, Result};
+use bloop_client_framework::audio::{self, PlaybackHandle};
 use rand_distr::weighted::WeightedAliasIndex;
 use rand_distr::Distribution;
 use regex::Regex;
-use rodio::{Decoder, OutputStream, Sink};
 use serde::{Deserialize, Serialize};
-use std::fs::File;
-use std::io::{BufReader, Read, Seek};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::select;
 use tokio::sync::{mpsc, Mutex};
-use tokio::task::JoinHandle;
-use tokio::{select, task};
 use tokio_graceful_shutdown::{FutureExt, IntoSubsystem, SubsystemHandle};
 use tracing::{error, info};
 
@@ -60,13 +57,18 @@ impl AudioPlayer {
 
     pub async fn play_file<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
         let volume = *self.volume.lock().await;
-        self.spawn_play_file_task(path.as_ref(), volume).await?;
+        play_logged(audio::play_file(path.as_ref(), volume)).await;
         Ok(())
     }
 
     pub async fn play_asset<P: AsRef<Path>>(&mut self, path: P) -> Result<()> {
         let volume = *self.volume.lock().await;
-        self.spawn_play_asset_task(path.as_ref(), volume).await?;
+
+        match self.read_asset(path.as_ref()).await {
+            Ok(reader) => play_logged(audio::play_reader(reader, volume)).await,
+            Err(error) => error!("failed to play audio: {}", error),
+        }
+
         Ok(())
     }
 
@@ -75,82 +77,30 @@ impl AudioPlayer {
         *self.volume.lock().await = volume;
 
         if !silent {
-            self.spawn_play_asset_task("volume-change.mp3", volume);
+            match self.read_asset(Path::new("volume-change.mp3")).await {
+                Ok(reader) => audio::play_reader(reader, volume).detach(),
+                Err(error) => error!("failed to play audio: {}", error),
+            }
         }
     }
 
-    fn spawn_play_file_task<P: AsRef<Path>>(&self, path: P, volume: f32) -> JoinHandle<()> {
-        let path = path.as_ref().to_path_buf();
-
-        tokio::spawn(async move {
-            let result = task::spawn_blocking(move || -> Result<()> {
-                let file = File::open(&path)
-                    .with_context(|| anyhow!("failed to open file: {:?}", path))?;
-                let reader = BufReader::new(file);
-                play_from_bufreader(reader, volume)?;
-                Ok(())
-            })
-            .await;
-
-            match result {
-                Err(err) => {
-                    error!("failed to play audio: {}", err);
-                }
-                Ok(Err(err)) => {
-                    error!("failed to play audio: {}", err);
-                }
-                Ok(Ok(())) => {}
-            }
-        })
-    }
-
-    fn spawn_play_asset_task<P: AsRef<Path>>(&self, path: P, volume: f32) -> JoinHandle<()> {
-        let path = path.as_ref().to_path_buf();
+    /// Opens the asset off the runtime thread; on the Pi this is a
+    /// synchronous SD card access.
+    async fn read_asset(
+        &self,
+        path: &Path,
+    ) -> Result<impl std::io::Read + std::io::Seek + Send + Sync + 'static> {
         let asset_loader = self.asset_loader.clone();
+        let path = path.to_path_buf();
 
-        tokio::spawn(async move {
-            let result = task::spawn_blocking(move || -> Result<()> {
-                let reader = asset_loader.read_file(&path)?;
-                play_from_bufreader(reader, volume)?;
-                Ok(())
-            })
-            .await;
-
-            match result {
-                Err(err) => {
-                    error!("failed to play audio: {}", err);
-                }
-                Ok(Err(err)) => {
-                    error!("failed to play audio: {}", err);
-                }
-                Ok(Ok(())) => {}
-            }
-        })
+        tokio::task::spawn_blocking(move || asset_loader.read_file(path)).await?
     }
 }
 
-fn play_from_bufreader<R>(reader: BufReader<R>, volume: f32) -> Result<()>
-where
-    R: Read + Seek + Send + Sync + 'static,
-{
-    // While we could create the output stream once in the player and re-use
-    // it, the ALSA stream does accumulate underflows and eventually starts
-    // crackling.
-    //
-    // We instead re-create the stream for every playback. While this has a
-    // slight overhead, it is, even on a Raspberry Pi Zero, not noticeable and
-    // solves the issue.
-    let (_stream, stream_handle) =
-        OutputStream::try_default().context("failed to open default output stream")?;
-
-    let sink = Sink::try_new(&stream_handle)?;
-    let decoder = Decoder::new(reader).with_context(|| anyhow!("failed to decode file"))?;
-
-    sink.set_volume(volume);
-    sink.append(decoder);
-    sink.sleep_until_end();
-
-    Ok(())
+async fn play_logged(handle: PlaybackHandle) {
+    if let Err(error) = handle.await {
+        error!("failed to play audio: {}", error);
+    }
 }
 
 #[derive(Debug)]
@@ -274,10 +224,9 @@ impl VolumeControlTask {
     }
 }
 
-#[async_trait::async_trait]
 impl IntoSubsystem<Error> for VolumeControlTask {
-    async fn run(mut self, subsys: SubsystemHandle) -> Result<()> {
-        if let Ok(result) = self.listen().cancel_on_shutdown(&subsys).await {
+    async fn run(mut self, subsys: &mut SubsystemHandle) -> Result<()> {
+        if let Ok(result) = self.listen().cancel_on_shutdown(subsys).await {
             result?;
         }
 

@@ -65,7 +65,7 @@ If you are testing against a locally hosted server with a self-signed certificat
 verification to connect to that server. You can do so through the following call:
 
 ```bash
-BLOOP_BOX_ROOT_CERT_SOURCE=dangerous_disable bloop-box
+BLOOP_BOX_ROOT_CERT_SOURCE=dangerous_disabled bloop-box
 ```
 
 Be really careful to only use this flag in development. If you use this in production, the client **will not** know if
@@ -92,26 +92,19 @@ up for you.
 
 ## Root Certificate Source
 
-By default, Bloop Box will use a built-in root certificate source (webpki). If this source does not support your server
-certificate, you can switch to the system's certificate store. The best way to do this is to add a systemd override:
+Bloop Box verifies the server certificate against the operating system's certificate store. To use a self-signed
+certificate, install its CA into the system store:
 
 ```bash
-sudo systemctl edit bloop-box.service
-```
-
-Add the following configuration:
-
-```
-[Service]
-Environment="BLOOP_BOX_ROOT_CERT_STORE=native"
-```
-
-Then apply the changes:
-
-```bash
-sudo systemctl daemon-reload
+sudo cp my-ca.crt /usr/local/share/ca-certificates/
+sudo update-ca-certificates
 sudo systemctl restart bloop-box.service
 ```
+
+The store is read once at startup, so the restart is required.
+
+For testing you can disable certificate verification entirely by setting the environment variable
+`BLOOP_BOX_ROOT_CERT_SOURCE=dangerous_disabled`. Never use this in production.
 
 ## Manual setup
 

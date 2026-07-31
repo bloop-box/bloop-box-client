@@ -33,19 +33,20 @@ where
             let result = panic::catch_unwind(f);
             shutdown_token.cancel();
 
-            if let Err(err) = result {
-                let msg = if let Some(s) = err.downcast_ref::<&str>() {
-                    s.to_string()
-                } else if let Some(s) = err.downcast_ref::<String>() {
-                    s.clone()
-                } else {
-                    "Unknown panic".to_string()
-                };
+            match result {
+                Ok(result) => result,
+                Err(err) => {
+                    let msg = if let Some(s) = err.downcast_ref::<&str>() {
+                        s.to_string()
+                    } else if let Some(s) = err.downcast_ref::<String>() {
+                        s.clone()
+                    } else {
+                        "Unknown panic".to_string()
+                    };
 
-                return Err(anyhow::anyhow!("Thread {name} panicked: {msg}"));
+                    Err(anyhow::anyhow!("Thread {name} panicked: {msg}"))
+                }
             }
-
-            Ok(())
         }
     })?;
 
@@ -63,9 +64,9 @@ pub fn unwrap_threads(threads: Vec<SupervisedThread>) -> bool {
         if let Err(err) = result {
             error!("Thread {:?} failed: {:?}", thread.name, err);
             has_errors = true;
+        } else {
+            info!("Thread {:?} shut down successfully", thread.name);
         }
-
-        info!("Thread {:?} shut down successfully", thread.name);
     }
 
     has_errors

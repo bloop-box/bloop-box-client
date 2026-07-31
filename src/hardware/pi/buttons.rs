@@ -87,10 +87,9 @@ impl Buttons {
     }
 }
 
-#[async_trait::async_trait]
 impl IntoSubsystem<Error> for Buttons {
-    async fn run(mut self, subsys: SubsystemHandle) -> Result<()> {
-        if let Ok(result) = self.listen().cancel_on_shutdown(&subsys).await {
+    async fn run(mut self, subsys: &mut SubsystemHandle) -> Result<()> {
+        if let Ok(result) = self.listen().cancel_on_shutdown(subsys).await {
             result?;
         }
 

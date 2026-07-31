@@ -104,8 +104,8 @@ impl BloopBoxEmulator {
 }
 
 impl eframe::App for BloopBoxEmulator {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        egui::Frame::central_panel(ui.style()).show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
                     if ui.button("Vol -").clicked() {

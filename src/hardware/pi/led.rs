@@ -55,6 +55,9 @@ fn led_controller_thread(
 
     while let Some(command) = rx.blocking_recv() {
         match command {
+            LedState::Off => {
+                aw2013.set_static_rgb([0, 0, 0], None, None)?;
+            }
             LedState::Static(color) => {
                 let rgb = color.rgb();
                 aw2013.set_static_rgb([rgb.0 / 4, rgb.1 / 4, rgb.2 / 4], None, None)?;
