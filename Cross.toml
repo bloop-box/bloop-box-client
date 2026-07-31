@@ -1,17 +1,21 @@
+# The distro's armhf packages are armv7 and link against a newer glibc than
+# the image's armv6 toolchain, so alsa-lib is built from source against the
+# toolchain's own sysroot.
 [target.arm-unknown-linux-gnueabihf]
+image = "ghcr.io/cross-rs/arm-unknown-linux-gnueabihf:main@sha256:5315f77be79826e00ea8f9728c1ef9199b3342213931c3f8cde6b4a38ad532e3"
 pre-build = [
-    "rm /etc/apt/preferences.d/all-packages",
-    "dpkg --add-architecture $CROSS_DEB_ARCH",
     "apt-get update",
-    "apt-get install --assume-yes libasound2-dev:$CROSS_DEB_ARCH",
-    "echo $CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_RUSTFLAGS"
+    "apt-get install --assume-yes make wget",
+    "wget -q https://www.alsa-project.org/files/pub/lib/alsa-lib-1.2.16.1.tar.bz2",
+    "tar xf alsa-lib-1.2.16.1.tar.bz2",
+    "cd alsa-lib-1.2.16.1 && CC=arm-unknown-linux-gnueabihf-gcc ./configure --host=arm-unknown-linux-gnueabihf --prefix=/x-tools/arm-unknown-linux-gnueabihf/arm-unknown-linux-gnueabihf/sysroot/usr --disable-python && make -j$(nproc) && make install",
 ]
 env.passthrough = [
-    "PKG_CONFIG_LIBDIR=/usr/local/lib/arm-linux-gnueabihf/pkgconfig:/usr/lib/arm-linux-gnueabihf/pkgconfig",
-    "CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_RUSTFLAGS=-L /usr/lib/arm-linux-gnueabihf -C link-args=-Wl,-rpath-link,/usr/lib/arm-linux-gnueabihf",
+    "PKG_CONFIG_LIBDIR=/x-tools/arm-unknown-linux-gnueabihf/arm-unknown-linux-gnueabihf/sysroot/usr/lib/pkgconfig",
 ]
 
 [target.aarch64-unknown-linux-gnu]
+image = "ghcr.io/cross-rs/aarch64-unknown-linux-gnu:main@sha256:981b2e8f83519070adf1ad60fcbc55382e52faf05bcd7bf434d607948a31b3c3"
 pre-build = [
     "dpkg --add-architecture $CROSS_DEB_ARCH",
     "apt-get update",
@@ -19,6 +23,7 @@ pre-build = [
 ]
 
 [target.x86_64-unknown-linux-gnu]
+image = "ghcr.io/cross-rs/x86_64-unknown-linux-gnu:main@sha256:a672f76a609a90d7d849f86e456fdfef5edbc1f4d2272aeeec5db322086cd419"
 pre-build = [
     "dpkg --add-architecture $CROSS_DEB_ARCH",
     "apt-get update",
@@ -35,6 +40,7 @@ env.passthrough = [
 # The image ships WineHQ's wine-stable already; installing it again used to
 # be required and now breaks on a multi-arch upgrade conflict.
 [target.x86_64-pc-windows-gnu]
+image = "ghcr.io/cross-rs/x86_64-pc-windows-gnu:main@sha256:5973561a2b4c0dece9ad49abbe765dba451b888e3ee7aa81b6d3831e983135b9"
 pre-build = [
     "cargo install --force --locked bindgen-cli",
     "mv $HOME/.cargo/bin/bindgen /usr/bin",
