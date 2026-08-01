@@ -46,7 +46,10 @@ static light, otherwise a breathing one.
 - Magenta: Awaiting new config tag
 - Yellow: Awaiting connection config
 - Blue: Connecting to server
+- Cyan: Connected, syncing audio files
 - Red: Invalid server credentials
+
+The LED turns off when the system shuts down.
 
 ## Pre-requisites
 
