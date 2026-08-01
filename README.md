@@ -24,7 +24,7 @@ arguments.
 |---------|-----------------------------------|----------------------------------|
 | w       | Set WiFi Credentials              | SSID, Password                   |
 | c       | Set Connection Details            | Host, Port, Client ID, Secret    |
-| v       | Set Volume Range                  | Min (0.0 - 0.1), Max (0.0 - 0.1) |
+| v       | Set Volume Range                  | Min (0.0 - 1.0), Max (0.0 - 1.0) |
 | u       | Add additional config tag         |                                  |
 | r       | Remove all but current config tag |                                  |
 | s       | Shut down system                  |                                  |
