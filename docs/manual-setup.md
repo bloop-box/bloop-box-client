@@ -11,8 +11,10 @@ cross build --target aarch64-unknown-linux-gnu
 Or if you still have a legacy Raspberry Zero W:
 
 ```bash
-cross build --target arm-unknown-linux-gnueabihf
+cross build --target arm-unknown-linux-gnueabihf --features with-bindgen
 ```
+
+The `with-bindgen` feature is required on this target because the TLS library ships no pregenerated bindings for it.
 
 This will generate a debug build. To create a release build, add `--release` to the command. Copy the resulting binary
 from the target folder to `/usr/bin/bloop-box` on your Raspberry.
